@@ -5,3 +5,4 @@ applications.csv
 emails.csv
 __pycache__/
 .venv/
+logs/

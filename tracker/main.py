@@ -29,17 +29,25 @@ def main(argv=None) -> int:
     parser.add_argument("--limit", type=int, default=1000, help="max emails to read per run")
     parser.add_argument("--rebuild", action="store_true",
                         help="forget what was read before and re-read every email (keeps your Notes)")
+    parser.add_argument("--background", action="store_true",
+                        help="for scheduled runs: never open a browser, show a Mac notification for changes")
     parser.add_argument("--no-claude", action="store_true", help="use the built-in rules even if a Claude key is set")
     args = parser.parse_args(argv)
 
     from .gmail_client import GmailClient
-    from .google_auth import get_credentials
+    from .google_auth import LoginNeeded, get_credentials
+    from .notify import notify
     from .storage import open_tables
     from .tracker import apply_email
 
     config = Config.load()
     query = args.query or (DEFAULT_QUERY.format(days=args.days) if args.days else config.job_query)
-    creds = get_credentials(config.credentials_file, config.token_file)
+    try:
+        creds = get_credentials(config.credentials_file, config.token_file, interactive=not args.background)
+    except LoginNeeded as e:
+        print(e)
+        notify("FRIDAY needs you", str(e))
+        return 1
     gmail = GmailClient(creds)
     app_table, email_table = open_tables(creds, config.sheet_id)
     apps, logged = app_table.load(), email_table.load()
@@ -99,6 +107,10 @@ def main(argv=None) -> int:
         print(f"\n{len(unknown)} job emails where the company couldn't be found (see the Emails tab):")
         for e in unknown[-10:]:
             print(f"  ? {e.date}  {e.sender}  |  {e.subject}")
+
+    if args.background and changes:
+        notify(f"FRIDAY: {len(changes)} update{'s' if len(changes) != 1 else ''}",
+               "; ".join(c[2:] for c in changes[:3]) + (" …" if len(changes) > 3 else ""))
 
     if args.dry_run:
         print("\nDry run: nothing saved.")

@@ -53,6 +53,18 @@ python -m tracker.main --days 90   # look further back
 The login creates `token.json`. Keep it and `credentials.json` private (both
 are in `.gitignore`).
 
+## Everyday use (Mac)
+
+- **Double-click `FRIDAY.command`** in Finder. It checks your email for new
+  job updates, then opens the dashboard in your browser. Close the Terminal
+  window when you're done.
+- **Automatic checks:** run `./scripts/schedule_mac.sh` once. Your Mac then
+  checks every 3 hours while it's awake and shows a notification when an
+  application changes. Turn it off with `./scripts/schedule_mac.sh off`.
+- Google logs this app out about once a week while it's in "Testing" mode.
+  When that happens you'll get a "FRIDAY needs you" notification; double-click
+  `FRIDAY.command` and log in again.
+
 ## Dashboard
 
 ```bash
