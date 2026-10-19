@@ -35,7 +35,7 @@ _KIND_PHRASES = [
         "security code", "verification code", "verify your", "confirm your identity", "confirm your email",
         "activate your account", "candidate account", "reset your password", "one-time code",
     )),
-    (OFFER, ("offer letter", "pleased to offer", "extend an offer", "extend you an offer", "job offer")),
+    (OFFER, ("offer letter", "pleased to offer", "extend an offer", "extend you an offer", "offer of employment")),
     (REJECTED, (
         "unfortunately", "not to move forward", "not moving forward", "will not be moving forward",
         "decided to pursue other", "other candidates", "position has been filled", "not been selected",
@@ -115,6 +115,10 @@ _COMPANY_PATTERNS = [
     r"(?i:interest in (?:joining |working (?:at|with|for) )?)(?!(?i:the|our|a|an|this)\b)(?P<c>[A-Z0-9][\w&.'’ -]{1,60}?)(?=\s*(?:[!?.;,|]|\s(?:and|for|as)\b|$))",
     # "applying to Aurora", "Application With ZEFR", "Applying to Ensign Services"
     r"(?i:(?:applying|applied|application|apply)\s+(?:to|with|at)\s+(?:the\s+)?)(?P<c>[A-Z0-9][\w&.,'’() -]{1,70}?)(?=\s*(?:[!?.;|]|\s[-–—]\s|,\s|\bfor\b|$))",
+    # lowercase-first names like "eClerx": "Application with eClerx"
+    r"(?i:(?:applying|applied|application|apply)\s+(?:to|with|at)\s+)(?!(?i:the|our|a|an|this|your|us)\b)(?P<c>[a-z][A-Z][\w&.'’ -]{1,60}?)(?=\s*(?:[!?.;|]|\s[-–—]\s|$))",
+    # "you're interested in Levanta and our mission"
+    r"(?i:interested in (?:joining |working (?:at|with|for) )?)(?!(?i:the|our|a|an|this|being)\b)(?P<c>[A-Z0-9][\w&.'’ -]{1,60}?)(?=\s*(?:[!?.;,|]|\s(?:and|for|as)\b|$))",
     # "joining TicketManager"
     r"\b(?i:join(?:ing)?\s+(?:the\s+)?)(?!(?i:our|us|the team)\b)(?P<c>[A-Z0-9][\w&.'’ -]{1,60}?)(?=\s*(?:[!?.;,|]|\s(?:team|and|as)\b|$))",
     # "Application Received – NTT DATA AIVista"
