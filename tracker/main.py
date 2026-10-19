@@ -18,6 +18,7 @@ warnings.filterwarnings("ignore", message=".*OpenSSL.*")
 from . import llm
 from .config import Config
 from .job_emails import DEFAULT_QUERY, VERIFICATION
+from .models import normalize_company
 
 
 def main(argv=None) -> int:
@@ -26,6 +27,8 @@ def main(argv=None) -> int:
     parser.add_argument("--query", help="custom Gmail search query")
     parser.add_argument("--dry-run", action="store_true", help="print changes without saving them")
     parser.add_argument("--limit", type=int, default=1000, help="max emails to read per run")
+    parser.add_argument("--rebuild", action="store_true",
+                        help="forget what was read before and re-read every email (keeps your Notes)")
     parser.add_argument("--no-claude", action="store_true", help="use the built-in rules even if a Claude key is set")
     args = parser.parse_args(argv)
 
@@ -40,6 +43,12 @@ def main(argv=None) -> int:
     gmail = GmailClient(creds)
     app_table, email_table = open_tables(creds, config.sheet_id)
     apps, logged = app_table.load(), email_table.load()
+    notes = {}
+    if args.rebuild:
+        notes = {(normalize_company(r.get("Company", "")), r.get("Role", "").lower()): r.get("Notes", "")
+                 for r in apps if r.get("Notes")}
+        apps, logged = [], []
+        print("Rebuilding from scratch: re-reading every matching email")
     seen = {r.get("Message ID") for r in logged}
 
     reader = None
@@ -76,6 +85,9 @@ def main(argv=None) -> int:
             changes.append(change)
         elif info["kind"] != "Other" and not info["company"]:
             unknown.append(email)
+
+    for row in apps:
+        row["Notes"] = row.get("Notes") or notes.get((normalize_company(row["Company"]), row["Role"].lower()), "")
 
     print("\n".join(f"  {c}" for c in changes) or "  no changes")
     print("By kind: " + ", ".join(f"{k} {n}" for k, n in kinds.most_common()))

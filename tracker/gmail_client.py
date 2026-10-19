@@ -43,6 +43,7 @@ class GmailClient:
             subject=headers.get("subject", ""),
             date=sent.date().isoformat(),
             text=_body_text(msg["payload"]),
+            labels=tuple(msg.get("labelIds", [])),
         )
 
 

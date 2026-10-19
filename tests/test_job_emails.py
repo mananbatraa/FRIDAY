@@ -2,7 +2,7 @@
 import unittest
 
 from tracker.job_emails import (
-    ASSESSMENT, CONFIRMATION, INTERVIEW, OFFER, REJECTED, VERIFICATION, classify, extract,
+    ASSESSMENT, CONFIRMATION, INTERVIEW, OFFER, OTHER, REJECTED, VERIFICATION, classify, extract,
 )
 from tracker.models import Email
 
@@ -78,6 +78,12 @@ CASES = [
      "Please complete the HackerRank online assessment within 7 days.", ASSESSMENT, "", ""),
     ("Acme Talent <talent@acme.com>", "Your offer letter from Acme",
      "We are pleased to offer you the position", OFFER, "Acme", ""),
+    ("Chetanya <mypersonalmentor-newsletter@mail.beehiiv.com>", "She Landed a $60K Job Offer without applying, But How?",
+     "Hello, Before I hand you over to our weekly newsletter... landed an offer letter as a Project Coordinator "
+     "without applying for it. The recruiter extended a job offer within 5 days. Register for the free Masterclass.",
+     OTHER, "", ""),
+    ("Career Coach <coach@careercoach.com>", "Your application strategy is broken",
+     "Join our free webinar to learn how to get an offer letter.", OTHER, "", ""),
 ]
 
 

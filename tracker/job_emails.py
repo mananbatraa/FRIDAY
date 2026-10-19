@@ -27,15 +27,26 @@ DEFAULT_QUERY = (
     "OR candidate OR interest OR resume OR position OR role) "
     "OR from:(greenhouse.io OR greenhouse-mail.io OR lever.co OR myworkday.com OR myworkdayjobs.com "
     "OR ashbyhq.com OR smartrecruiters.com OR icims.com OR taleo.net OR jobvite.com OR workablemail.com "
-    "OR successfactors.com OR tsenta))"
+    "OR successfactors.com OR tsenta)) "
+    "-category:promotions"
 )
+
+# Newsletters and marketing senders: never an application, however job-y the words.
+_NEWSLETTER_SENDERS = re.compile(
+    r"newsletter|beehiiv|substack|mailchimp|mcsv\.net|convertkit|kit-mail|mailerlite|sendinblue|brevo|"
+    r"hubspot|klaviyo|medium\.com|webinar|masterclass|digest",
+    re.IGNORECASE,
+)
+_MARKETING_WORDS = ("masterclass", "webinar", "unsubscribe from this newsletter", "weekly newsletter",
+                    "reserve your free spot", "register now", "free workshop")
 
 _KIND_PHRASES = [
     (VERIFICATION, (
         "security code", "verification code", "verify your", "confirm your identity", "confirm your email",
         "activate your account", "candidate account", "reset your password", "one-time code",
     )),
-    (OFFER, ("offer letter", "pleased to offer", "extend an offer", "extend you an offer", "offer of employment")),
+    (OFFER, ("pleased to offer you", "extend you an offer", "extend an offer to you", "offer of employment",
+             "your offer letter", "attached offer letter", "congratulations on your offer")),
     (REJECTED, (
         "unfortunately", "not to move forward", "not moving forward", "will not be moving forward",
         "decided to pursue other", "other candidates", "position has been filled", "not been selected",
@@ -68,7 +79,16 @@ def _match_kind(text: str) -> str | None:
     return None
 
 
+def is_marketing(email: Email) -> bool:
+    if "CATEGORY_PROMOTIONS" in email.labels or _NEWSLETTER_SENDERS.search(email.sender):
+        return True
+    text = f"{email.subject}\n{email.text[:6000]}".lower()
+    return any(w in text for w in _MARKETING_WORDS)
+
+
 def classify(email: Email) -> str:
+    if is_marketing(email):
+        return OTHER
     subject_kind = _match_kind(email.subject)
     body_kind = _match_kind(email.text[:4000])
     if subject_kind in (VERIFICATION, OFFER, REJECTED, INTERVIEW, ASSESSMENT):

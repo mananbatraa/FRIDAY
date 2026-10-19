@@ -11,6 +11,7 @@ class Email:
     subject: str
     date: str  # ISO date, YYYY-MM-DD
     text: str
+    labels: tuple = ()  # Gmail label IDs, e.g. CATEGORY_PROMOTIONS
 
     @property
     def gmail_link(self) -> str:
