@@ -3,11 +3,18 @@ from __future__ import annotations
 import base64
 import html
 import re
+import time
 from datetime import datetime, timezone
 
 from googleapiclient.discovery import build
 
 from .models import Email
+
+# On a rate-limit error the Google client waits and retries with growing pauses
+# (about 1s, 2s, 4s ... up to ~2 minutes in total) before giving up.
+RETRIES = 7
+# Small pause between messages to stay under Gmail's per-minute quota.
+PAUSE_SECONDS = 0.1
 
 
 class GmailClient:
@@ -19,13 +26,14 @@ class GmailClient:
         ids: list[str] = []
         request = self.service.users().messages().list(userId="me", q=query, maxResults=min(limit, 500))
         while request is not None and len(ids) < limit:
-            response = request.execute()
+            response = request.execute(num_retries=RETRIES)
             ids.extend(m["id"] for m in response.get("messages", []))
             request = self.service.users().messages().list_next(request, response)
         return ids[:limit]
 
     def get(self, message_id: str) -> Email:
-        msg = self.service.users().messages().get(userId="me", id=message_id, format="full").execute()
+        time.sleep(PAUSE_SECONDS)
+        msg = self.service.users().messages().get(userId="me", id=message_id, format="full").execute(num_retries=RETRIES)
         headers = {h["name"].lower(): h["value"] for h in msg["payload"].get("headers", [])}
         sent = datetime.fromtimestamp(int(msg["internalDate"]) / 1000, tz=timezone.utc)
         return Email(
