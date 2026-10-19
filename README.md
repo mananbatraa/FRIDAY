@@ -20,7 +20,7 @@ classification, scheduling and the daily digest come next.
 
 ## One-time setup (about 20 minutes)
 
-1. **Python 3.10+**, then:
+1. **Python 3.9+**, then:
    ```bash
    python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
    pip install -r requirements.txt

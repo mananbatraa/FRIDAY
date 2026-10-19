@@ -4,6 +4,8 @@
     python -m tracker.main --dry-run    # just print what it would add
     python -m tracker.main --query 'from:tenta newer_than:7d'
 """
+from __future__ import annotations
+
 import argparse
 import csv
 import sys

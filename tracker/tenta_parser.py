@@ -10,6 +10,8 @@ in order and stops at the first one that finds something:
 
 Once real samples are in samples/, tighten these to the actual template.
 """
+from __future__ import annotations
+
 import re
 
 from .models import Application, Email

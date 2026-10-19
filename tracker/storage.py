@@ -1,4 +1,6 @@
 """Where applications are saved: a Google Sheet, or a local CSV as a fallback."""
+from __future__ import annotations
+
 import csv
 import os
 from datetime import date
