@@ -8,7 +8,12 @@ from __future__ import annotations
 
 import argparse
 import sys
+import warnings
 from collections import Counter
+
+# Google's libraries warn loudly about Python 3.9 and macOS's LibreSSL; harmless here.
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", message=".*OpenSSL.*")
 
 from . import llm
 from .config import Config
@@ -49,7 +54,12 @@ def main(argv=None) -> int:
     print(f"{len(ids)} emails match the search, {len(new_ids)} not seen before")
 
     # Oldest first, so statuses move forward in the order things happened.
-    emails = sorted((gmail.get(i) for i in new_ids), key=lambda e: e.date)
+    emails = []
+    for n, message_id in enumerate(new_ids, 1):
+        emails.append(gmail.get(message_id))
+        if n % 20 == 0 or n == len(new_ids):
+            print(f"  downloaded {n}/{len(new_ids)}", flush=True)
+    emails.sort(key=lambda e: e.date)
     kinds, changes, needs_you, unknown = Counter(), [], [], []
     for email in emails:
         info = (reader.read(email) if reader else None) or llm.rules(email)
