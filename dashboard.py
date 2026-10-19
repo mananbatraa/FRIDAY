@@ -60,7 +60,7 @@ apps, emails, source = load()
 
 top = st.columns([4, 1])
 top[0].markdown('<h1>Job <span class="accent">applications</span></h1>', unsafe_allow_html=True)
-if top[1].button("Refresh", use_container_width=True):
+if top[1].button("Refresh", width="stretch"):
     load.clear()
     st.rerun()
 
@@ -132,7 +132,7 @@ else:
     if not active.empty:
         st.dataframe(
             active[["Company", "Role", "Status", "Last update", "Next action", "Latest email"]],
-            hide_index=True, use_container_width=True,
+            hide_index=True, width="stretch",
             column_config={
                 "Latest email": st.column_config.LinkColumn("Email", display_text="Open"),
                 "Last update": st.column_config.DateColumn(format="MMM D"),
@@ -141,7 +141,7 @@ else:
     if not recent_checks.empty:
         with st.expander(f"{len(recent_checks)} security-code or verification emails in the last 3 days"):
             st.dataframe(
-                recent_checks[["Date", "Subject", "Email link"]], hide_index=True, use_container_width=True,
+                recent_checks[["Date", "Subject", "Email link"]], hide_index=True, width="stretch",
                 column_config={"Email link": st.column_config.LinkColumn("Email", display_text="Open")},
             )
 
@@ -166,7 +166,7 @@ if isinstance(period, (list, tuple)) and len(period) == 2:
 st.caption(f"{len(view)} of {total} applications · data from {source}")
 st.dataframe(
     view.sort_values("Applied on", ascending=False),
-    hide_index=True, use_container_width=True, height=480,
+    hide_index=True, width="stretch", height=480,
     column_config={
         "Latest email": st.column_config.LinkColumn("Email", display_text="Open"),
         "Applied on": st.column_config.DateColumn(format="MMM D"),
@@ -177,6 +177,6 @@ st.dataframe(
 with st.expander("Email log: every email the tracker has read"):
     st.dataframe(
         emails.sort_values("Date", ascending=False).drop(columns=["Message ID"]),
-        hide_index=True, use_container_width=True,
+        hide_index=True, width="stretch",
         column_config={"Email link": st.column_config.LinkColumn("Email", display_text="Open")},
     )
