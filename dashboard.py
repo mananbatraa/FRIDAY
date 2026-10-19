@@ -22,9 +22,21 @@ from tracker.storage import APP_COLUMNS, EMAIL_COLUMNS, open_tables  # noqa: E40
 
 PIPELINE = ["Applied", "Assessment", "Interview", "Offer", "Rejected"]
 ACTIVE = ["Assessment", "Interview", "Offer"]
-BAR = "#2a78d6"
+# Theme colours (see .streamlit/config.toml)
+CHARTREUSE = "#D4FF3F"
+HOT_PINK = "#FF2DA8"
+INK = "#F4F4F2"
+BAR = CHARTREUSE
 
 st.set_page_config(page_title="FRIDAY · Job applications", page_icon="💼", layout="wide")
+st.markdown(
+    f"""<style>
+    [data-testid="stMetricValue"] {{ color: {CHARTREUSE}; }}
+    h1 span.accent {{ color: {HOT_PINK}; }}
+    h3 {{ border-left: 4px solid {HOT_PINK}; padding-left: 12px !important; }}
+    </style>""",
+    unsafe_allow_html=True,
+)
 
 
 @st.cache_data(ttl=120, show_spinner="Loading your applications…")
@@ -47,7 +59,7 @@ def load() -> tuple[pd.DataFrame, pd.DataFrame, str]:
 apps, emails, source = load()
 
 top = st.columns([4, 1])
-top[0].title("Job applications")
+top[0].markdown('<h1>Job <span class="accent">applications</span></h1>', unsafe_allow_html=True)
 if top[1].button("Refresh", use_container_width=True):
     load.clear()
     st.rerun()
@@ -104,7 +116,7 @@ with right:
         tooltip=["Status", "Applications"],
     )
     bars = base.mark_bar(color=BAR, cornerRadiusTopRight=4, cornerRadiusBottomRight=4, height=22)
-    labels = base.mark_text(align="left", dx=6, fontSize=13).encode(text="Applications:Q")
+    labels = base.mark_text(align="left", dx=6, fontSize=13, color=INK).encode(text="Applications:Q")
     st.altair_chart((bars + labels).properties(height=260), use_container_width=True)
 
 # ------------------------------------------------------------------ needs attention

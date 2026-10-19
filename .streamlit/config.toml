@@ -1,0 +1,7 @@
+# Dashboard colours: jet black, hot pink, chartreuse.
+[theme]
+base = "dark"
+backgroundColor = "#0B0B0B"
+secondaryBackgroundColor = "#1A1A1C"
+primaryColor = "#FF2DA8"
+textColor = "#F4F4F2"
