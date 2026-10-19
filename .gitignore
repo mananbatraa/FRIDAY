@@ -2,6 +2,6 @@
 credentials.json
 token.json
 applications.csv
-unparsed.csv
+emails.csv
 __pycache__/
 .venv/

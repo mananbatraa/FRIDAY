@@ -1,22 +1,25 @@
 # FRIDAY: job application tracker
 
-Reads your Gmail, finds the confirmation emails Tenta AI sends when it applies
-to a job for you, and logs each application (company, role, location, link,
-date) in a Google Sheet. If no Sheet is configured it writes `applications.csv`.
-
-This is phase 1 of the plan. Status tracking from company replies, Claude
-classification, scheduling and the daily digest come next.
+Reads your Gmail, finds the emails companies send when you apply (Tsenta AI
+applies with your address, so confirmations come straight from each company
+or its job site: Greenhouse, Workday, Lever, Ashby and so on), and keeps a
+tracker of every application and its status in a Google Sheet. Without a
+Sheet it writes `applications.csv` and `emails.csv`.
 
 ## How it works
 
-1. Searches Gmail with `TENTA_QUERY` (read-only access).
-2. Parses each matching email with `tracker/tenta_parser.py`. It handles
-   labelled fields (`Company: …`, `Role: …`), batch emails listing several jobs,
-   and sentences like "applied to the Data Analyst role at Acme".
-3. Skips emails it has already processed and jobs already in the sheet
-   (same company + title).
-4. Appends new rows. Emails it couldn't parse are listed in `unparsed.csv` so
-   the parser can be improved.
+1. Searches Gmail (read-only) for job-related emails from the last `DAYS` days.
+2. Sorts each new email into a kind: **Applied**, **Assessment**, **Interview**,
+   **Offer**, **Rejected**, **Verification** (security codes, identity checks)
+   or **Other**, and finds the company and role.
+   - By default this uses built-in rules (`tracker/job_emails.py`).
+   - With `ANTHROPIC_API_KEY` set (Python 3.10+), Claude reads each email
+     instead, which handles unusual wording better. Rules are the fallback.
+3. Updates the **Applications** tab: one row per company + role. Status only
+   moves forward (Applied → Assessment → Interview → Offer), except Rejected,
+   which can come at any stage. Your Notes column is never touched.
+4. Logs every processed email in the **Emails** tab, so nothing is counted
+   twice and you can check why a row has its status.
 
 ## One-time setup (about 20 minutes)
 
@@ -36,15 +39,15 @@ classification, scheduling and the daily digest come next.
 3. **Google Sheet** (optional): create an empty sheet and put the long ID from
    its URL (`docs.google.com/spreadsheets/d/<THIS_PART>/edit`) in `.env` as
    `SHEET_ID`. The script adds an `Applications` tab with headers.
-4. **Tenta sender**: open one Tenta confirmation email, check the sender
-   address, and set `TENTA_QUERY` in `.env`, e.g.
-   `TENTA_QUERY=from:notifications@tenta.ai newer_than:60d`.
+4. **Claude (optional)**: put an API key from <https://console.anthropic.com/>
+   in `.env` as `ANTHROPIC_API_KEY`. Needs Python 3.10+ (`python3 --version`).
 
 ## Run it
 
 ```bash
 python -m tracker.main --dry-run   # first run opens a browser to log in; prints what it found
-python -m tracker.main             # saves to the Sheet / applications.csv
+python -m tracker.main             # saves to the Sheet / CSV files
+python -m tracker.main --days 90   # look further back
 ```
 
 The login creates `token.json`. Keep it and `credentials.json` private (both
@@ -56,5 +59,5 @@ are in `.gitignore`).
 python -m unittest discover -s tests -t .
 ```
 
-`samples/placeholder_*.txt` are made-up emails. Add real Tenta emails there
-(personal details blanked out) and a test for each, then tighten the parser.
+`tests/test_job_emails.py` holds real subject lines and previews. When the
+rules get an email wrong, add it there and adjust `tracker/job_emails.py`.

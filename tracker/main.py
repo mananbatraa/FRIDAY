@@ -1,71 +1,90 @@
-"""Find Tenta AI confirmation emails and log each application.
+"""Read job emails from Gmail and keep the application tracker up to date.
 
-    python -m tracker.main              # update the Sheet (or applications.csv)
-    python -m tracker.main --dry-run    # just print what it would add
-    python -m tracker.main --query 'from:tenta newer_than:7d'
+    python -m tracker.main              # update the Sheet (or the CSV files)
+    python -m tracker.main --dry-run    # print what it found without saving
+    python -m tracker.main --days 7     # only look at the last 7 days
 """
 from __future__ import annotations
 
 import argparse
-import csv
 import sys
+from collections import Counter
 
-from . import tenta_parser
+from . import llm
 from .config import Config
+from .job_emails import DEFAULT_QUERY, VERIFICATION
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--query", help="Gmail search query (overrides TENTA_QUERY)")
-    parser.add_argument("--dry-run", action="store_true", help="print new applications without saving them")
-    parser.add_argument("--limit", type=int, default=500, help="max emails to read per run")
+    parser.add_argument("--days", type=int, help="how many days back to search (default 30, or DAYS in .env)")
+    parser.add_argument("--query", help="custom Gmail search query")
+    parser.add_argument("--dry-run", action="store_true", help="print changes without saving them")
+    parser.add_argument("--limit", type=int, default=1000, help="max emails to read per run")
+    parser.add_argument("--no-claude", action="store_true", help="use the built-in rules even if a Claude key is set")
     args = parser.parse_args(argv)
 
     from .gmail_client import GmailClient
     from .google_auth import get_credentials
-    from .storage import CsvStorage, SheetStorage
+    from .storage import open_tables
+    from .tracker import apply_email
 
     config = Config.load()
+    query = args.query or (DEFAULT_QUERY.format(days=args.days) if args.days else config.job_query)
     creds = get_credentials(config.credentials_file, config.token_file)
     gmail = GmailClient(creds)
-    storage = SheetStorage(creds, config.sheet_id) if config.sheet_id else CsvStorage()
-    seen_ids, seen_keys = storage.known()
+    app_table, email_table = open_tables(creds, config.sheet_id)
+    apps, logged = app_table.load(), email_table.load()
+    seen = {r.get("Message ID") for r in logged}
 
-    query = args.query or config.tenta_query
-    message_ids = gmail.search(query, limit=args.limit)
-    print(f"{len(message_ids)} emails match: {query}")
+    reader = None
+    if not args.no_claude and llm.available():
+        reader = llm.Claude(config.claude_model)
+        print(f"Reading emails with Claude ({config.claude_model})")
+    else:
+        print("Reading emails with built-in rules (set ANTHROPIC_API_KEY to use Claude)")
 
-    new_apps, unparsed = [], []
-    for message_id in message_ids:
-        if message_id in seen_ids:
+    ids = gmail.search(query, limit=args.limit)
+    new_ids = [i for i in ids if i not in seen]
+    print(f"{len(ids)} emails match the search, {len(new_ids)} not seen before")
+
+    # Oldest first, so statuses move forward in the order things happened.
+    emails = sorted((gmail.get(i) for i in new_ids), key=lambda e: e.date)
+    kinds, changes, needs_you, unknown = Counter(), [], [], []
+    for email in emails:
+        info = (reader.read(email) if reader else None) or llm.rules(email)
+        kinds[info["kind"]] += 1
+        logged.append({
+            "Date": email.date, "Kind": info["kind"], "Company": info["company"], "Role": info["role"],
+            "From": email.sender, "Subject": email.subject, "Email link": email.gmail_link, "Message ID": email.id,
+        })
+        if info["kind"] == VERIFICATION:
+            needs_you.append(email)
             continue
-        email = gmail.get(message_id)
-        apps = tenta_parser.parse(email)
-        if not apps:
-            unparsed.append(email)
-            continue
-        for app in apps:
-            if app.key in seen_keys:
-                continue
-            seen_keys.add(app.key)
-            new_apps.append(app)
+        change = apply_email(apps, email, info)
+        if change:
+            changes.append(change)
+        elif info["kind"] != "Other" and not info["company"]:
+            unknown.append(email)
 
-    for app in new_apps:
-        print(f"  + {app.applied_on}  {app.company}  |  {app.job_title}")
-    print(f"{len(new_apps)} new applications")
+    print("\n".join(f"  {c}" for c in changes) or "  no changes")
+    print("By kind: " + ", ".join(f"{k} {n}" for k, n in kinds.most_common()))
+    if needs_you:
+        print(f"\n{len(needs_you)} verification / security-code emails (only matter if an application is stuck):")
+        for e in needs_you[-10:]:
+            print(f"  ? {e.date}  {e.subject}")
+    if unknown:
+        print(f"\n{len(unknown)} job emails where the company couldn't be found (see the Emails tab):")
+        for e in unknown[-10:]:
+            print(f"  ? {e.date}  {e.sender}  |  {e.subject}")
 
-    if unparsed:
-        print(f"{len(unparsed)} emails matched the search but couldn't be parsed (saved to unparsed.csv):")
-        with open("unparsed.csv", "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(["Date", "From", "Subject", "Email link"])
-            for email in unparsed:
-                writer.writerow([email.date, email.sender, email.subject, email.gmail_link])
-                print(f"  ? {email.date}  {email.subject}")
-
-    if new_apps and not args.dry_run:
-        storage.append(new_apps)
-        print("Saved to " + ("Google Sheet" if config.sheet_id else "applications.csv"))
+    if args.dry_run:
+        print("\nDry run: nothing saved.")
+        return 0
+    app_table.save(apps)
+    email_table.save(logged)
+    where = "Google Sheet" if config.sheet_id else "applications.csv and emails.csv"
+    print(f"\nSaved {len(apps)} applications to {where}")
     return 0
 
 

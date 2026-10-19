@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from .job_emails import DEFAULT_QUERY
+
 
 def _load_dotenv(path: str = ".env") -> None:
     """Minimal .env loader so there's one less dependency."""
@@ -19,17 +21,22 @@ def _load_dotenv(path: str = ".env") -> None:
 
 @dataclass
 class Config:
-    tenta_query: str
+    days: int
+    job_query: str
     sheet_id: str
     credentials_file: str
     token_file: str
+    claude_model: str
 
     @classmethod
     def load(cls) -> "Config":
         _load_dotenv()
+        days = int(os.environ.get("DAYS", "30"))
         return cls(
-            tenta_query=os.environ.get("TENTA_QUERY", "from:(tenta) newer_than:60d"),
+            days=days,
+            job_query=os.environ.get("JOB_QUERY") or DEFAULT_QUERY.format(days=days),
             sheet_id=os.environ.get("SHEET_ID", ""),
             credentials_file=os.environ.get("GOOGLE_CREDENTIALS_FILE", "credentials.json"),
             token_file=os.environ.get("GOOGLE_TOKEN_FILE", "token.json"),
+            claude_model=os.environ.get("CLAUDE_MODEL", "claude-opus-5-5"),
         )
