@@ -53,6 +53,17 @@ python -m tracker.main --days 90   # look further back
 The login creates `token.json`. Keep it and `credentials.json` private (both
 are in `.gitignore`).
 
+## Dashboard
+
+```bash
+streamlit run dashboard.py
+```
+
+Opens in your browser: totals, applications per day, where each application
+stands, a "needs your attention" list (interviews, assessments, offers and
+recent security-code emails), and a searchable table of everything. It reads
+the same Sheet or CSV files the tracker writes; press **Refresh** after a run.
+
 ## Tests
 
 ```bash
