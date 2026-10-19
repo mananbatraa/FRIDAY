@@ -1,0 +1,12 @@
+From: Tenta AI <notifications@tenta.example>
+Subject: Application submitted
+Date: 2026-10-19
+
+Hi Manan, here is your application summary.
+
+Company: Globex Pvt Ltd
+Role: Backend Engineer
+Location: Bengaluru (Hybrid)
+Job link: https://jobs.lever.co/globex/abc-123
+
+Track all your applications in your Tenta dashboard.

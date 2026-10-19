@@ -1,0 +1,13 @@
+From: Tenta AI <notifications@tenta.example>
+Subject: We applied to Data Analyst at Acme Corp for you
+Date: 2026-10-18
+
+Hi Manan,
+
+Good news! Tenta just applied to the Data Analyst role at Acme Corp on your behalf.
+
+View the job posting: https://boards.greenhouse.io/acme/jobs/123456
+
+Good luck!
+The Tenta team
+Unsubscribe: https://tenta.example/unsubscribe
