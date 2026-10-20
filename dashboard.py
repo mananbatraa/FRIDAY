@@ -561,11 +561,13 @@ with today_tab:
             counted = dated.groupby("Applied on").size().rename("Applications")
             per_day["Applications"] = per_day["Day"].map(counted).fillna(0)
             per_day["Day"] = pd.to_datetime(per_day["Day"])
+            # Whole-number ticks: list each one when the counts are small, otherwise let Vega pick about five.
+            top_count = int(per_day["Applications"].max())
+            y_ticks = {"values": list(range(top_count + 1))} if top_count <= 6 else {"tickCount": 5}
             chart = alt.Chart(per_day).mark_bar(color="#8fa894", cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
                 x=alt.X("yearmonthdate(Day):O", title=None,
                         axis=alt.Axis(format="%b %d", labelAngle=0, labelOverlap=True, ticks=False)),
-                y=alt.Y("Applications:Q", title=None, axis=alt.Axis(values=list(range(int(per_day["Applications"].max()) + 1))
-                                                                 if per_day["Applications"].max() <= 6 else None, tickCount=5,
+                y=alt.Y("Applications:Q", title=None, axis=alt.Axis(**y_ticks,
                                                                  format="d", domain=False, ticks=False)),
                 tooltip=[alt.Tooltip("yearmonthdate(Day):T", title="Day", format="%a %b %d"),
                          alt.Tooltip("Applications:Q")],
