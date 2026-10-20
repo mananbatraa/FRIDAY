@@ -1,3 +1,5 @@
+# Use prebuilt packages so no compiler is needed (cryptography otherwise tries to build from source).
+--only-binary=cryptography
 google-api-python-client>=2.100
 google-auth-oauthlib>=1.2
 google-auth>=2.25
