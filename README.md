@@ -71,10 +71,23 @@ are in `.gitignore`).
 streamlit run dashboard.py
 ```
 
-Opens in your browser: totals, applications per day, where each application
-stands, a "needs your attention" list (interviews, assessments, offers and
-recent security-code emails), and a searchable table of everything. It reads
-the same Sheet or CSV files the tracker writes; press **Refresh** after a run.
+Opens in your browser. The **Today** view is a calm overview:
+
+- **Active pipeline**: open applications by stage. Click a row's arrow to add
+  interview rounds (time, interviewer, meeting link, prep doc), set the work
+  mode, and keep notes.
+- **Next 48 hours**: upcoming rounds with one-click meeting and prep links.
+- **Funnel**: how many reached each stage and the conversion between them.
+- **Follow-up queue**: next steps the tracker found plus your own to-dos
+  (saved in `todos.csv`, or a "To-dos" tab in your Sheet).
+
+Use **Add application** for jobs you applied to outside email, the Remote /
+Hybrid / Onsite pills to filter, and the mail button to check email right away.
+Other tabs: an editable table of everything, each company's email history, and
+the full email log.
+
+Set `SEARCH_TITLE` in `.env` to change the heading. To try it with sample data
+(no Gmail needed): `streamlit run dashboard.py -- --demo`.
 
 ## Tests
 

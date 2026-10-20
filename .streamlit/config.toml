@@ -1,7 +1,15 @@
-# Dashboard colours: jet black, hot pink, chartreuse.
+# Dashboard theme: warm analog / editorial. Cream canvas, espresso ink, serif headings.
 [theme]
-base = "dark"
-backgroundColor = "#0B0B0B"
-secondaryBackgroundColor = "#1A1A1C"
-primaryColor = "#FF2DA8"
-textColor = "#F4F4F2"
+base = "light"
+backgroundColor = "#fcfaf7"
+secondaryBackgroundColor = "#f4eee6"
+primaryColor = "#1e1b18"
+textColor = "#1e1b18"
+borderColor = "#eaddcf"
+linkColor = "#3d5a45"
+font = "'Inter', -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif"
+headingFont = "Georgia, 'Times New Roman', serif"
+headingFontWeights = 500
+baseRadius = "0.6rem"
+showWidgetBorder = true
+dataframeHeaderBackgroundColor = "#f7f2ec"

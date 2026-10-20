@@ -11,8 +11,11 @@ import os
 
 APP_COLUMNS = [
     "Company", "Role", "Status", "Applied on", "Last update", "Next action", "Latest email", "Notes",
+    # Filled in from the dashboard. Rounds is a JSON list of scheduled interview rounds.
+    "Work mode", "Rounds",
 ]
 EMAIL_COLUMNS = ["Date", "Kind", "Company", "Role", "From", "Subject", "Email link", "Message ID"]
+TODO_COLUMNS = ["Task", "Company", "Due", "Done", "Source"]
 
 
 class CsvTable:
@@ -68,3 +71,13 @@ def open_tables(creds, sheet_id: str):
         SheetTable(sheets, sheet_id, "Applications", APP_COLUMNS),
         SheetTable(sheets, sheet_id, "Emails", EMAIL_COLUMNS),
     )
+
+
+def open_todo_table(creds, sheet_id: str):
+    """The dashboard's follow-up checklist: a "To-dos" tab, or todos.csv."""
+    if not sheet_id:
+        return CsvTable("todos.csv", TODO_COLUMNS)
+    from googleapiclient.discovery import build
+
+    sheets = build("sheets", "v4", credentials=creds, cache_discovery=False).spreadsheets()
+    return SheetTable(sheets, sheet_id, "To-dos", TODO_COLUMNS)

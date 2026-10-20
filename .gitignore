@@ -3,6 +3,8 @@ credentials.json
 token.json
 applications.csv
 emails.csv
+todos.csv
+.demo/
 __pycache__/
 .venv/
 logs/
