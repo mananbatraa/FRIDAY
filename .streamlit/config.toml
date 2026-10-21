@@ -1,15 +1,15 @@
-# Dashboard theme: warm analog / editorial. Cream canvas, espresso ink, serif headings.
+# Dashboard theme: Stark Industries HUD. Deep navy canvas, arc-reactor cyan, Orbitron headings.
 [theme]
-base = "light"
-backgroundColor = "#fcfaf7"
-secondaryBackgroundColor = "#f4eee6"
-primaryColor = "#1e1b18"
-textColor = "#1e1b18"
-borderColor = "#eaddcf"
-linkColor = "#3d5a45"
-font = "'Inter', -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif"
-headingFont = "Georgia, 'Times New Roman', serif"
-headingFontWeights = 500
-baseRadius = "0.6rem"
+base = "dark"
+backgroundColor = "#060b14"
+secondaryBackgroundColor = "#0b1626"
+primaryColor = "#2de2e6"
+textColor = "#cfeaf2"
+borderColor = "#16405a"
+linkColor = "#2de2e6"
+font = "'Rajdhani', 'Helvetica Neue', Helvetica, Arial, sans-serif"
+headingFont = "'Orbitron', 'Rajdhani', sans-serif"
+headingFontWeights = 600
+baseRadius = "0.3rem"
 showWidgetBorder = true
-dataframeHeaderBackgroundColor = "#f7f2ec"
+dataframeHeaderBackgroundColor = "#0f2238"

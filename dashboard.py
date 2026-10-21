@@ -44,76 +44,119 @@ EDITABLE = ["Status", "Work mode", "Next action", "Notes"]
 PIPELINE_PREVIEW = 8
 
 # Palette (see .streamlit/config.toml)
-INK = "#1e1b18"
-MUTED = "#6b635b"
-LINE = "#eaddcf"
-SAGE = "#3d5a45"
-STONE = "#d8cdc1"
+INK = "#cfeaf2"
+MUTED = "#6f8da3"
+LINE = "#16405a"
+CYAN = "#2de2e6"
+GOLD = "#f5b942"
+STONE = "#16324a"
 
-st.set_page_config(page_title="FRIDAY · Job search", page_icon="📓", layout="wide")
+ARC_REACTOR = (
+    '<svg class="reactor" viewBox="0 0 100 100" width="46" height="46" xmlns="http://www.w3.org/2000/svg">'
+    '<circle cx="50" cy="50" r="46" fill="none" stroke="#2de2e6" stroke-width="2" opacity=".5"/>'
+    '<circle cx="50" cy="50" r="36" fill="none" stroke="#2de2e6" stroke-width="5" stroke-dasharray="9 5"/>'
+    '<circle cx="50" cy="50" r="24" fill="none" stroke="#2de2e6" stroke-width="2"/>'
+    '<polygon points="50,33 64.7,41.5 64.7,58.5 50,67 35.3,58.5 35.3,41.5" fill="#2de2e6" opacity=".9"/>'
+    '<circle cx="50" cy="50" r="7" fill="#e9ffff"/></svg>'
+)
+
+st.set_page_config(page_title="F.R.I.D.A.Y. · Stark Industries", page_icon="⚛️", layout="wide")
 st.markdown(
     f"""<style>
-    .block-container {{ padding-top: 3.6rem; max-width: 1320px; }}
-    h1, h2, h3, h4 {{ font-family: Georgia, 'Times New Roman', serif !important; font-weight: 500 !important;
-                      color: {INK}; letter-spacing: -0.01em; }}
-    h3 {{ font-size: 1.35rem !important; padding: 0 0 .4rem !important; }}
-    [data-testid="stIconMaterial"] {{ color: {MUTED}; }}
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+    html, body, [class*="st-"], button, input, textarea {{ font-family: 'Rajdhani', -apple-system, sans-serif; }}
+    .stApp {{
+        background:
+            radial-gradient(circle at 12% -5%, rgba(45,226,230,.13), transparent 42%),
+            radial-gradient(circle at 95% 5%, rgba(229,72,77,.09), transparent 36%),
+            linear-gradient(rgba(45,226,230,.035) 1px, transparent 1px) 0 0 / 44px 44px,
+            linear-gradient(90deg, rgba(45,226,230,.035) 1px, transparent 1px) 0 0 / 44px 44px,
+            #060b14;
+    }}
+    .block-container {{ padding-top: 2rem; max-width: 1320px; }}
+    h1, h2, h3, h4 {{ font-family: 'Orbitron', sans-serif !important; font-weight: 600 !important; color: {INK};
+                      letter-spacing: .04em; }}
+    h3 {{ font-size: .98rem !important; text-transform: uppercase; color: {CYAN} !important; padding: 0 0 .5rem !important; }}
+    [data-testid="stIconMaterial"] {{ color: {CYAN}; }}
 
-    .eyebrow {{ font-size: .72rem; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: {MUTED}; }}
-    h1.title {{ font-size: 2.35rem !important; line-height: 1.15; margin: .3rem 0 .35rem; padding: 0 !important; }}
-    .summary {{ color: {MUTED}; font-size: 1.02rem; margin: 0; }}
-    .summary b {{ color: {INK}; font-weight: 600; }}
+    /* Brand bar */
+    .brandbar {{ display: flex; justify-content: space-between; align-items: center; padding-bottom: .9rem;
+        margin-bottom: 1.3rem; border-bottom: 1px solid {LINE}; }}
+    .stark {{ font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.35rem; letter-spacing: .32em; color: {CYAN};
+        text-shadow: 0 0 14px rgba(45,226,230,.55); }}
+    .stark small {{ display: block; font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: .72rem;
+        letter-spacing: .38em; color: {GOLD}; margin-top: .15rem; }}
+    .friday {{ display: flex; align-items: center; gap: .85rem; text-align: right; }}
+    .friday b {{ display: block; font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.3rem;
+        letter-spacing: .3em; color: {CYAN}; text-shadow: 0 0 14px rgba(45,226,230,.55); }}
+    .friday small {{ display: block; font-size: .72rem; letter-spacing: .2em; color: {MUTED}; text-transform: uppercase; }}
+    .reactor {{ filter: drop-shadow(0 0 8px rgba(45,226,230,.8)); animation: pulse 3.2s ease-in-out infinite; }}
+    @keyframes pulse {{ 0%, 100% {{ opacity: .75; }} 50% {{ opacity: 1; }} }}
 
-    /* Bento tiles */
-    div[class*="st-key-tile_"] {{ background: #ffffff; border: 1px solid {LINE}; border-radius: 16px;
-        box-shadow: 0 2px 10px rgba(30,27,24,.03); padding: 1.15rem 1.3rem 1.25rem; }}
-    .tile-note {{ color: {MUTED}; font-size: .86rem; margin-top: -.35rem; }}
+    .eyebrow {{ font-size: .8rem; font-weight: 600; letter-spacing: .28em; color: {GOLD}; text-transform: uppercase; }}
+    h1.title {{ font-size: 1.9rem !important; font-weight: 500 !important; text-transform: uppercase; letter-spacing: .18em;
+        line-height: 1.25; margin: .35rem 0 .55rem; padding: 0 !important; text-shadow: 0 0 22px rgba(45,226,230,.25); }}
+    .summary {{ color: {MUTED}; font-size: 1.1rem; margin: 0; letter-spacing: .02em; }}
+    .summary b {{ color: {CYAN}; font-weight: 700; }}
+
+    /* HUD panels with corner brackets */
+    div[class*="st-key-tile_"] {{ position: relative; background: rgba(10,22,38,.78); border: 1px solid {LINE};
+        border-radius: 4px; box-shadow: 0 0 26px rgba(45,226,230,.07), inset 0 0 40px rgba(45,226,230,.03);
+        padding: 1.15rem 1.35rem 1.3rem; }}
+    div[class*="st-key-tile_"]::before, div[class*="st-key-tile_"]::after {{ content: ""; position: absolute;
+        width: 16px; height: 16px; border: 0 solid {CYAN}; pointer-events: none; }}
+    div[class*="st-key-tile_"]::before {{ top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; }}
+    div[class*="st-key-tile_"]::after {{ bottom: -1px; right: -1px; border-bottom-width: 2px; border-right-width: 2px; }}
+    .tile-note {{ color: {MUTED}; font-size: .95rem; margin-top: -.35rem; }}
 
     /* Pipeline rows */
-    .thead {{ color: {MUTED}; font-size: .72rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }}
-    div[class*="st-key-row_"] {{ border-top: 1px solid #f1e8de; padding: .5rem .35rem; border-radius: 10px;
-        transition: background .2s ease; }}
-    div[class*="st-key-row_"]:hover {{ background: #fbf7f2; }}
-    .co {{ font-weight: 600; color: {INK}; line-height: 1.3; }}
-    .role {{ color: {MUTED}; font-size: .86rem; line-height: 1.35; }}
-    .touch {{ color: {MUTED}; font-size: .88rem; }}
-    div[class*="st-key-drawer_"] {{ background: #fbf8f4; border: 1px solid #efe5da; border-radius: 12px;
+    .thead {{ color: {GOLD}; font-size: .74rem; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; }}
+    div[class*="st-key-row_"] {{ border-top: 1px solid #10304a; padding: .5rem .5rem; border-radius: 3px;
+        transition: background .2s ease, box-shadow .2s ease; }}
+    div[class*="st-key-row_"]:hover {{ background: rgba(45,226,230,.07); box-shadow: inset 2px 0 0 {CYAN}; }}
+    .co {{ font-weight: 700; color: {INK}; line-height: 1.3; font-size: 1.05rem; letter-spacing: .02em; }}
+    .role {{ color: {MUTED}; font-size: .92rem; line-height: 1.35; }}
+    .touch {{ color: {MUTED}; font-size: .95rem; }}
+    div[class*="st-key-drawer_"] {{ background: rgba(45,226,230,.04); border: 1px solid {LINE}; border-radius: 4px;
         padding: 1rem 1.1rem; margin: .4rem 0 .3rem; }}
-    .trail {{ color: {MUTED}; font-size: .86rem; line-height: 1.6; }}
+    .trail {{ color: {MUTED}; font-size: .92rem; line-height: 1.6; }}
 
     /* Stage badges */
-    .badge {{ display: inline-block; padding: 2px 11px; border-radius: 999px; font-size: .76rem; font-weight: 600;
-              border: 1px solid; white-space: nowrap; }}
-    .b-offer {{ color: #064e3b; background: rgba(209,250,229,.7); border-color: #6ee7b7; }}
-    .b-interview {{ color: #3d5a45; background: #e8efe9; border-color: #c2d6c6; }}
-    .b-assessment {{ color: #9c4126; background: #faece7; border-color: #f1cbbe; }}
-    .b-applied {{ color: #57534e; background: #f6f3ef; border-color: #e7e0d8; }}
-    .b-rejected {{ color: #8a817a; background: #f3efea; border-color: #e4ddd5; }}
+    .badge {{ display: inline-block; padding: 2px 11px; border-radius: 2px; font-size: .74rem; font-weight: 700;
+              letter-spacing: .12em; text-transform: uppercase; border: 1px solid; white-space: nowrap; }}
+    .b-offer {{ color: #5dffa8; background: rgba(93,255,168,.1); border-color: #2e8f5f; box-shadow: 0 0 10px rgba(93,255,168,.25); }}
+    .b-interview {{ color: {CYAN}; background: rgba(45,226,230,.1); border-color: #1d8a90; box-shadow: 0 0 10px rgba(45,226,230,.25); }}
+    .b-assessment {{ color: {GOLD}; background: rgba(245,185,66,.1); border-color: #8f6a22; }}
+    .b-applied {{ color: #9db6c6; background: rgba(157,182,198,.08); border-color: #2f4b60; }}
+    .b-rejected {{ color: #e5484d; background: rgba(229,72,77,.08); border-color: #6f2a2d; opacity: .8; }}
 
-    /* Next 48 hours */
-    div[class*="st-key-slot_"] {{ border-left: 2px solid #c2d6c6; padding: .1rem 0 .4rem .9rem; margin-bottom: .6rem; }}
-    .when-day {{ font-size: .72rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: {SAGE}; }}
-    .when-time {{ font-family: Georgia, serif; font-size: 1.35rem; color: {INK}; line-height: 1.2; }}
+    /* Incoming 48 hours */
+    div[class*="st-key-slot_"] {{ border-left: 2px solid {GOLD}; padding: .1rem 0 .4rem .9rem; margin-bottom: .6rem; }}
+    .when-day {{ font-size: .78rem; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; color: {GOLD}; }}
+    .when-time {{ font-family: 'Orbitron', sans-serif; font-size: 1.35rem; color: {INK}; line-height: 1.25; }}
 
     /* Funnel */
-    .conv {{ color: {MUTED}; font-size: .86rem; line-height: 1.75; }}
-    .conv b {{ color: {INK}; font-family: Georgia, serif; font-size: 1rem; font-weight: 500; }}
+    .conv {{ color: {MUTED}; font-size: .98rem; line-height: 1.75; }}
+    .conv b {{ color: {CYAN}; font-family: 'Orbitron', sans-serif; font-size: .9rem; font-weight: 600; }}
 
-    /* Follow-up checklist: strike through gently when ticked */
+    /* Directives checklist: strike through gently when ticked */
     div.st-key-todos [data-testid="stCheckbox"] p {{ text-decoration: line-through; text-decoration-color: transparent;
         text-decoration-thickness: 1.5px; transition: text-decoration-color .4s ease, color .4s ease; }}
     div.st-key-todos [data-testid="stCheckbox"] label:has(input:checked) p {{ text-decoration-color: {MUTED};
         color: {MUTED}; }}
 
     /* Buttons, tabs, dialog */
-    button[kind="primary"], button[kind="primaryFormSubmit"] {{ background: {INK}; border-color: {INK}; color: #fcfaf7; }}
-    button[kind="primary"]:hover, button[kind="primaryFormSubmit"]:hover {{ background: #322d28; border-color: #322d28;
-        color: #fcfaf7; }}
-    .stTabs [data-baseweb="tab-list"] {{ gap: 1.6rem; }}
-    .stTabs [aria-selected="true"] p {{ color: {INK}; font-weight: 600; }}
-    div[data-baseweb="modal"] > div:first-child {{ backdrop-filter: blur(4px); background: rgba(30,27,24,.2); }}
-    div[role="dialog"] {{ background: #fffdfa; border: 1px solid {LINE}; border-radius: 16px;
-        box-shadow: 0 18px 50px rgba(30,27,24,.12); }}
+    button[kind="primary"], button[kind="primaryFormSubmit"] {{ background: rgba(45,226,230,.12); border: 1px solid {CYAN};
+        color: {CYAN}; border-radius: 3px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+        box-shadow: 0 0 14px rgba(45,226,230,.2); }}
+    button[kind="primary"]:hover, button[kind="primaryFormSubmit"]:hover {{ background: rgba(45,226,230,.25);
+        border-color: {CYAN}; color: #e9ffff; box-shadow: 0 0 22px rgba(45,226,230,.5); }}
+    .stTabs [data-baseweb="tab-list"] {{ gap: 1.6rem; border-bottom: 1px solid {LINE}; }}
+    .stTabs [data-baseweb="tab"] p {{ letter-spacing: .14em; text-transform: uppercase; font-weight: 600; }}
+    .stTabs [aria-selected="true"] p {{ color: {CYAN}; font-weight: 700; text-shadow: 0 0 10px rgba(45,226,230,.5); }}
+    div[data-baseweb="modal"] > div:first-child {{ backdrop-filter: blur(5px); background: rgba(2,6,12,.65); }}
+    div[role="dialog"] {{ background: #0a1626; border: 1px solid {CYAN}; border-radius: 4px;
+        box-shadow: 0 0 40px rgba(45,226,230,.25); }}
     </style>""",
     unsafe_allow_html=True,
 )
@@ -121,8 +164,8 @@ st.markdown(
 
 def chart_style(chart: alt.Chart) -> alt.Chart:
     return (
-        chart.configure_axis(labelColor=MUTED, titleColor=MUTED, gridColor="#f1e8de", domainColor=LINE,
-                             tickColor=LINE, labelFont="Inter", labelFontSize=12)
+        chart.configure_axis(labelColor=MUTED, titleColor=MUTED, gridColor="#10263a", domainColor=LINE,
+                             tickColor=LINE, labelFont="Rajdhani", labelFontSize=12)
         .configure_view(strokeWidth=0)
         .configure(background="transparent")
     )
@@ -149,7 +192,7 @@ def tables():
             "Google Sheet" if config.sheet_id else "applications.csv")
 
 
-@st.cache_data(ttl=120, show_spinner="Loading your applications…")
+@st.cache_data(ttl=120, show_spinner="Retrieving your applications…")
 def load() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     (app_table, email_table, todo_table), _ = tables()
     if DEMO and not os.path.exists(app_table.path):
@@ -189,7 +232,7 @@ def flash(message: str) -> None:
 
 def check_email_now() -> None:
     """Run the tracker in the background and report what changed."""
-    with st.spinner("Checking your email for job updates…"):
+    with st.spinner("Scanning your inbox for job news…"):
         result = subprocess.run(
             [sys.executable, "-m", "tracker.main", "--background"],
             cwd=HERE, capture_output=True, text=True,
@@ -202,7 +245,7 @@ def check_email_now() -> None:
     elif changes:
         flash(f"{len(changes)} update{'s' if len(changes) != 1 else ''}: " + "; ".join(c[2:] for c in changes[:5]))
     else:
-        flash("No new job emails.")
+        flash("No new job emails detected.")
 
 
 def rounds_of(cell: str) -> list[dict]:
@@ -277,7 +320,7 @@ def add_application() -> None:
                         "Last update": date.today(), "Next action": action.strip(), "Notes": notes.strip(),
                         "Work mode": mode})
             save_apps(pd.concat([apps, pd.DataFrame([row])], ignore_index=True))
-            flash(f"Added {company.strip()}")
+            flash(f"{company.strip()} logged. Good luck, Master.")
             st.rerun()
 
 
@@ -308,8 +351,9 @@ _, source = tables()
 today = date.today()
 now = datetime.now()
 
-title = demo.TITLE if DEMO else (os.environ.get("SEARCH_TITLE")
-                                 or f"Current Search: Q{(today.month - 1) // 3 + 1} {today.year}")
+name = "" if DEMO else os.environ.get("FRIDAY_NAME", "").strip()
+hello = "Good morning" if now.hour < 12 else "Good afternoon" if now.hour < 18 else "Good evening"
+title = demo.TITLE if DEMO else (os.environ.get("SEARCH_TITLE") or (f"{hello}, {name}" if name else hello))
 
 upcoming = []
 for idx, row in apps.iterrows():
@@ -324,16 +368,24 @@ upcoming.sort(key=lambda r: r["when"])
 
 active = int(apps["Status"].isin(ACTIVE).sum())
 open_todos = int((todos["Done"].isna() | (todos["Done"] == "")).sum()) + int((apps["Next action"] != "").sum())
+CHEERS = ["All systems nominal", "Ready when you are", "Shall we get to work?", "The odds are in your favor",
+          "Suit up"]
+random_cheer = CHEERS[today.toordinal() % len(CHEERS)]  # same one all day
 summary = [f"<b>{active}</b> active conversation{'s' if active != 1 else ''}"]
 if upcoming:
     summary.append(f"<b>{len(upcoming)}</b> round{'s' if len(upcoming) != 1 else ''} in the next 48 hours")
 if open_todos:
     summary.append(f"<b>{open_todos}</b> follow-up{'s' if open_todos != 1 else ''}")
-summary.append("Keep steady")
+summary.append(random_cheer)
 
+st.markdown(
+    '<div class="brandbar"><div class="stark">STARK INDUSTRIES</div>'
+    f'<div class="friday"><div><b>F.R.I.D.A.Y.</b></div>{ARC_REACTOR}</div></div>',
+    unsafe_allow_html=True,
+)
 top = st.columns([3.4, 2.1], vertical_alignment="bottom")
 top[0].markdown(
-    f'<div class="eyebrow">FRIDAY · {today.strftime("%A, %B %-d")}</div>'
+    f'<div class="eyebrow">System online · {today.strftime("%A, %B %-d")}</div>'
     f'<h1 class="title">{html.escape(title)}</h1>'
     f'<p class="summary">{" · ".join(summary)}</p>',
     unsafe_allow_html=True,
@@ -359,7 +411,7 @@ if "check_error" in st.session_state:
 
 st.write("")
 if apps.empty:
-    st.info("No applications yet. Use the mail button to read your inbox, or add one by hand.")
+    st.info("No applications on record. Scan your inbox with the mail button, or log your first one by hand.")
     st.stop()
 
 in_mode = apps if mode == "All" else apps[apps["Work mode"] == mode]
@@ -414,17 +466,17 @@ with today_tab:
 
     # Tile 1: active pipeline
     with main, st.container(key="tile_pipeline"):
-        st.markdown("### :material/view_agenda: Active pipeline")
+        st.markdown("### Active pipeline")
         pipeline = in_mode[in_mode["Status"] != "Rejected"].copy()
         pipeline["rank"] = pipeline["Status"].map(RANK).fillna(0)
         pipeline["touch"] = pd.to_datetime(pipeline["Last update"], errors="coerce")
         pipeline = pipeline.sort_values(["rank", "touch"], ascending=[False, False])
-        note = f"{len(pipeline)} open applications" + ("" if mode == "All" else f" · {mode}")
+        note = f"{len(pipeline)} open application{'s' if len(pipeline) != 1 else ''}" + ("" if mode == "All" else f" · {mode}")
         st.markdown(f'<div class="tile-note">{note} · click a row\'s arrow for rounds, interviewers and notes</div>',
                     unsafe_allow_html=True)
         if pipeline.empty:
             st.caption(f"Nothing marked {mode} yet. Set the work mode in an application's details."
-                       if mode != "All" else "No open applications.")
+                       if mode != "All" else "No open applications. Time to deploy one.")
         widths = [3.6, 1.5, 1.3, 1.25]
         head = st.columns(widths)
         for col, label in zip(head, ["Company", "Stage", "Last touch", ""]):
@@ -458,7 +510,7 @@ with today_tab:
 
     # Tile 2: next 48 hours
     with side, st.container(key="tile_next"):
-        st.markdown("### :material/schedule: Next 48 hours")
+        st.markdown("### Incoming · 48 hours")
         if not upcoming:
             st.markdown('<div class="tile-note">Nothing scheduled. Add a round from a row\'s details in the '
                         'pipeline and it will show up here.</div>', unsafe_allow_html=True)
@@ -483,17 +535,17 @@ with today_tab:
 
     # Tile 3: funnel
     with side, st.container(key="tile_funnel"):
-        st.markdown("### :material/filter_alt: Funnel")
+        st.markdown("### Conversion funnel")
         ranks = in_mode["Status"].map(RANK).fillna(0)
         reached = [int((ranks >= k).sum()) if k > 1 else len(in_mode) for _, k in FUNNEL]
         stages = pd.DataFrame({"Stage": [s for s, _ in FUNNEL], "Applications": reached})
         stages["Label"] = stages["Stage"] + "  " + stages["Applications"].astype(str)
         pick = alt.selection_point(fields=["Stage"], name="pick")
-        bars = alt.Chart(stages).mark_bar(cornerRadius=4, height=18, cursor="pointer").encode(
+        bars = alt.Chart(stages).mark_bar(cornerRadius=2, height=18, cursor="pointer").encode(
             y=alt.Y("Label:N", sort=list(stages["Label"]), title=None,
                     axis=alt.Axis(labelFontSize=12.5, labelLimit=220, ticks=False, domain=False, labelColor=INK)),
             x=alt.X("Applications:Q", title=None, axis=None),
-            color=alt.condition(pick, alt.value(SAGE), alt.value(STONE)),
+            color=alt.condition(pick, alt.value(CYAN), alt.value(STONE)),
             tooltip=["Stage", "Applications"],
         ).add_params(pick).properties(height=104)
         event = st.altair_chart(chart_style(bars), use_container_width=True, on_select="rerun", key="funnel")
@@ -510,11 +562,11 @@ with today_tab:
             more = f" and {len(hits) - 12} more" if len(hits) > 12 else ""
             st.caption(f"**{chosen[0]}:** {names}{more}")
         else:
-            st.caption("Click a bar to see who reached that stage.")
+            st.caption("Select a bar to see who made it that far.")
 
     # Tile 4: follow-up queue
     with main, st.container(key="tile_todos"):
-        st.markdown("### :material/checklist: Follow-up queue")
+        st.markdown("### Directives")
         with st.container(key="todos"):
             items = []
             for idx, row in apps[apps["Next action"] != ""].iterrows():
@@ -527,7 +579,7 @@ with today_tab:
                                   t["Due"] if isinstance(t["Due"], date) else None, done is not None))
             items.sort(key=lambda i: (i[4], i[3] or date.max))
             if not items:
-                st.markdown('<div class="tile-note">All caught up.</div>', unsafe_allow_html=True)
+                st.markdown('<div class="tile-note">All directives complete. Well done.</div>', unsafe_allow_html=True)
             for kind, idx, text, due, done in items:
                 due_text = f"  :gray[· due {day_name(due) if 0 <= (due - today).days < 7 else due.strftime('%b %-d')}]" \
                     if due and not done else ""
@@ -535,19 +587,19 @@ with today_tab:
                 st.checkbox(f"{text}{due_text}", value=done, key=key, on_change=tick, args=(kind, idx, key))
         with st.form("add_todo", border=False, clear_on_submit=True):
             f = st.columns([4, 1.6, 0.6], vertical_alignment="bottom")
-            task = f[0].text_input("New follow-up", placeholder="Add a follow-up, e.g. Send portfolio to Priya",
+            task = f[0].text_input("New follow-up", placeholder="New directive, e.g. Send portfolio to Priya",
                                    label_visibility="collapsed")
             due = f[1].date_input("Due", value=None, label_visibility="collapsed", format="YYYY-MM-DD")
             if f[2].form_submit_button("", icon=":material/add:", width="stretch") and task.strip():
                 todos.loc[len(todos)] = {"Task": task.strip(), "Company": "", "Due": due, "Done": None,
                                          "Source": "you"}
                 save_todos(todos)
-                flash("Added to your follow-ups")
+                flash("Directive logged")
                 st.rerun()
 
     # Tile 5: activity
     with side, st.container(key="tile_activity"):
-        st.markdown("### :material/bar_chart: Applications sent")
+        st.markdown("### Outreach log")
         period = st.segmented_control("Show", list(RANGES), default="30 days", key="range",
                                       label_visibility="collapsed") or "30 days"
         days = RANGES[period]
@@ -564,7 +616,7 @@ with today_tab:
             # Whole-number ticks: list each one when the counts are small, otherwise let Vega pick about five.
             top_count = int(per_day["Applications"].max())
             y_ticks = {"values": list(range(top_count + 1))} if top_count <= 6 else {"tickCount": 5}
-            chart = alt.Chart(per_day).mark_bar(color="#8fa894", cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
+            chart = alt.Chart(per_day).mark_bar(color="#1fb6c1", cornerRadiusTopLeft=2, cornerRadiusTopRight=2).encode(
                 x=alt.X("yearmonthdate(Day):O", title=None,
                         axis=alt.Axis(format="%b %d", labelAngle=0, labelOverlap=True, ticks=False)),
                 y=alt.Y("Applications:Q", title=None, axis=alt.Axis(**y_ticks,
@@ -649,7 +701,7 @@ with history:
             st.caption("No logged emails for this company.")
         else:
             timeline = trail.assign(Day=pd.to_datetime(trail["Date"]))
-            dots = alt.Chart(timeline).mark_circle(size=160, color=INK, stroke="#fcfaf7", strokeWidth=2).encode(
+            dots = alt.Chart(timeline).mark_circle(size=160, color=CYAN, stroke="#060b14", strokeWidth=2).encode(
                 x=alt.X("Day:T", title=None, axis=alt.Axis(format="%b %d", grid=False)),
                 y=alt.Y("Kind:N", sort=PIPELINE + ["Verification", "Other"], title=None),
                 tooltip=[alt.Tooltip("Day:T", format="%a %b %d"), "Kind", "Subject"],

@@ -8,3 +8,4 @@ todos.csv
 __pycache__/
 .venv/
 logs/
+.DS_Store
