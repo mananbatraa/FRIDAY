@@ -23,6 +23,7 @@ warnings.filterwarnings("ignore", message=".*OpenSSL.*")
 import altair as alt  # noqa: E402
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
+import streamlit.components.v1 as components  # noqa: E402
 
 from tracker import demo  # noqa: E402
 from tracker.config import Config  # noqa: E402
@@ -67,14 +68,15 @@ st.markdown(
     html, body, [class*="st-"], button, input, textarea {{ font-family: 'Rajdhani', -apple-system, sans-serif; }}
     /* Keep Streamlit's icon font, or icons show up as words like "expand_more". */
     [data-testid="stIconMaterial"] {{ font-family: 'Material Symbols Rounded' !important; }}
+    /* The cube floor (assets/cubes.js) is a canvas behind the app, so the app itself is see-through. */
+    html, body {{ background: #060b14; }}
     .stApp {{
         background:
             radial-gradient(circle at 12% -5%, rgba(45,226,230,.13), transparent 42%),
             radial-gradient(circle at 95% 5%, rgba(229,72,77,.09), transparent 36%),
-            linear-gradient(rgba(45,226,230,.035) 1px, transparent 1px) 0 0 / 44px 44px,
-            linear-gradient(90deg, rgba(45,226,230,.035) 1px, transparent 1px) 0 0 / 44px 44px,
-            #060b14;
+            transparent;
     }}
+    [data-testid="stElementContainer"]:has(iframe[title="st.iframe"]) {{ display: none; }}
     .block-container {{ padding-top: 3.4rem; max-width: 1320px; }}
     h1, h2, h3, h4 {{ font-family: 'Orbitron', sans-serif !important; font-weight: 600 !important; color: {INK};
                       letter-spacing: .04em; }}
@@ -161,6 +163,14 @@ st.markdown(
         box-shadow: 0 0 40px rgba(45,226,230,.25); }}
     </style>""",
     unsafe_allow_html=True,
+)
+# Inject the cube background into the page once (the component's own frame is hidden and empty).
+components.html(
+    "<script>(function(){var d=window.parent.document;if(d.getElementById('friday-cubes-js'))return;"
+    "var s=d.createElement('script');s.id='friday-cubes-js';s.textContent="
+    + json.dumps((HERE / "assets" / "cubes.js").read_text(encoding="utf-8"))
+    + ";d.head.appendChild(s);})();</script>",
+    height=0,
 )
 
 
