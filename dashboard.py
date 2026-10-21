@@ -65,6 +65,8 @@ st.markdown(
     f"""<style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
     html, body, [class*="st-"], button, input, textarea {{ font-family: 'Rajdhani', -apple-system, sans-serif; }}
+    /* Keep Streamlit's icon font, or icons show up as words like "expand_more". */
+    [data-testid="stIconMaterial"] {{ font-family: 'Material Symbols Rounded' !important; }}
     .stApp {{
         background:
             radial-gradient(circle at 12% -5%, rgba(45,226,230,.13), transparent 42%),
@@ -73,7 +75,7 @@ st.markdown(
             linear-gradient(90deg, rgba(45,226,230,.035) 1px, transparent 1px) 0 0 / 44px 44px,
             #060b14;
     }}
-    .block-container {{ padding-top: 2rem; max-width: 1320px; }}
+    .block-container {{ padding-top: 3.4rem; max-width: 1320px; }}
     h1, h2, h3, h4 {{ font-family: 'Orbitron', sans-serif !important; font-weight: 600 !important; color: {INK};
                       letter-spacing: .04em; }}
     h3 {{ font-size: .98rem !important; text-transform: uppercase; color: {CYAN} !important; padding: 0 0 .5rem !important; }}
