@@ -24,8 +24,10 @@ Sheet it writes `applications.csv` and `emails.csv`.
    - **USA Jobs**: application received / thanks for applying, and rejections.
    - **USA Jobs/Actions to be Taken**: online assessments, interviews and offers.
 
-   Verification and other emails stay where they are. To also sort emails read
-   on earlier runs, run once with `--sort-old`. FRIDAY never sends or deletes mail.
+   Security-code and "verify your account" emails go to Gmail's Trash once
+   they're a day old (Gmail empties Trash after 30 days). Other emails stay
+   where they are. To also sort emails read on earlier runs, run once with
+   `--sort-old`. FRIDAY never sends mail.
 
 ## One-time setup (about 20 minutes)
 
