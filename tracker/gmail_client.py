@@ -63,11 +63,12 @@ class GmailClient:
             body = {"ids": message_ids[start:start + 1000], "addLabelIds": [label_id], "removeLabelIds": ["INBOX"]}
             self.service.users().messages().batchModify(userId="me", body=body).execute(num_retries=RETRIES)
 
-    def received(self, message_id: str) -> datetime:
-        """When a message arrived."""
+    def arrival(self, message_id: str) -> tuple[datetime, bool]:
+        """When a message arrived, and whether it's already in the trash."""
         time.sleep(PAUSE_SECONDS)
         msg = self.service.users().messages().get(userId="me", id=message_id, format="minimal").execute(num_retries=RETRIES)
-        return datetime.fromtimestamp(int(msg["internalDate"]) / 1000, tz=timezone.utc)
+        received = datetime.fromtimestamp(int(msg["internalDate"]) / 1000, tz=timezone.utc)
+        return received, "TRASH" in msg.get("labelIds", [])
 
     def trash(self, message_ids: list[str]) -> None:
         """Move messages to Gmail's Trash, which Gmail empties after 30 days."""

@@ -136,9 +136,14 @@ def main(argv=None) -> int:
 
 
 def old_codes(gmail, message_ids: list[str]) -> list[str]:
-    """The security-code emails that arrived more than CODE_KEEP ago."""
+    """The security-code emails that arrived more than CODE_KEEP ago and aren't binned yet."""
     cutoff = datetime.now(timezone.utc) - CODE_KEEP
-    return [i for i in message_ids if gmail.received(i) <= cutoff]
+    old = []
+    for message_id in message_ids:
+        received, in_trash = gmail.arrival(message_id)
+        if received <= cutoff and not in_trash:
+            old.append(message_id)
+    return old
 
 
 def move_to_folders(gmail, folders: dict[str, list[str]], codes: list[str]) -> None:
