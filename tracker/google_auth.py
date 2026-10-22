@@ -8,8 +8,9 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-# Mail access to read job emails and move them into folders (it never sends or
-# deletes); Sheets access only to write the tracker sheet.
+# Mail access to read job emails, move them into folders and put old security-code
+# emails in the Trash (it never sends or permanently deletes); Sheets access only
+# to write the tracker sheet.
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.modify",
     "https://www.googleapis.com/auth/spreadsheets",

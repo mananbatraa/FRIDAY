@@ -137,10 +137,15 @@ def main(argv=None) -> int:
 
 def old_codes(gmail, message_ids: list[str]) -> list[str]:
     """The security-code emails that arrived more than CODE_KEEP ago and aren't binned yet."""
+    from googleapiclient.errors import HttpError
+
     cutoff = datetime.now(timezone.utc) - CODE_KEEP
     old = []
     for message_id in message_ids:
-        received, in_trash = gmail.arrival(message_id)
+        try:
+            received, in_trash = gmail.arrival(message_id)
+        except HttpError:  # e.g. already deleted for good; it must not stop the run before saving
+            continue
         if received <= cutoff and not in_trash:
             old.append(message_id)
     return old
