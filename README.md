@@ -25,7 +25,7 @@ Sheet it writes `applications.csv` and `emails.csv`.
    - **USA Jobs/Actions to be Taken**: online assessments, interviews and offers.
 
    Security-code and "verify your account" emails go to Gmail's Trash once
-   they're a day old (Gmail empties Trash after 30 days). Other emails stay
+   they're 2 hours old (Gmail empties Trash after 30 days). Other emails stay
    where they are. To also sort emails read on earlier runs, run once with
    `--sort-old`. FRIDAY never sends mail.
 

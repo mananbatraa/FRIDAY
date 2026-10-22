@@ -30,9 +30,9 @@ def by_folder(logged: list[dict]) -> dict[str, list[str]]:
 
 
 # Security codes are only needed while you fill in an application, so they're
-# binned once they're a day old. Normal runs recheck the last week's, which
+# binned once they're 2 hours old. Normal runs recheck the last week's, which
 # catches codes that were too new on the run that first read them.
-CODE_KEEP = timedelta(days=1)
+CODE_KEEP = timedelta(hours=2)
 CODE_RECHECK_DAYS = 7
 
 

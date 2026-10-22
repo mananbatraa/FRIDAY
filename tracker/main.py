@@ -107,7 +107,7 @@ def main(argv=None) -> int:
     print("\n".join(f"  {c}" for c in changes) or "  no changes")
     print("By kind: " + ", ".join(f"{k} {n}" for k, n in kinds.most_common()))
     if needs_you:
-        print(f"\n{len(needs_you)} verification / security-code emails (binned once they're a day old):")
+        print(f"\n{len(needs_you)} verification / security-code emails (binned once they're 2 hours old):")
         for e in needs_you[-10:]:
             print(f"  ? {e.date}  {e.subject}")
     if unknown:
@@ -155,7 +155,7 @@ def move_to_folders(gmail, folders: dict[str, list[str]], codes: list[str]) -> N
             print(f"Moved {len(folders[folder])} emails to {folder}")
         if codes:
             gmail.trash(codes)
-            print(f"Binned {len(codes)} security-code emails more than a day old")
+            print(f"Binned {len(codes)} security-code emails more than 2 hours old")
     except HttpError as e:
         print(f"Couldn't sort emails in Gmail: {e}")
 
