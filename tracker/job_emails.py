@@ -115,6 +115,9 @@ _GENERIC_SENDERS = re.compile(
     r"jobs?|team|.*\.sender|workdaysystem.*)$",
     re.IGNORECASE,
 )
+_JOB_SITES = re.compile(
+    r"\b(?:greenhouse|workday|lever|ashby|smartrecruiters|icims|taleo|jobvite|workable|dayforce)\b", re.IGNORECASE,
+)
 _GENERIC_DOMAINS = (
     "gmail.com", "greenhouse.io", "greenhouse-mail.io", "lever.co", "myworkday.com", "myworkdayjobs.com",
     "ashbyhq.com", "smartrecruiters.com", "icims.com", "taleo.net", "jobvite.com", "workablemail.com",
@@ -130,11 +133,11 @@ _SENDER_NOISE = re.compile(
 _COMPANY_PATTERNS = [
     # "... at Affirm"
     r"\b(?i:role|position|job|opening|internship|opportunity|engineer\w*|developer|analyst|intern|team|\))\s+(?i:at|with)\s+(?P<c>[A-Z0-9][\w&.,'’ -]{1,60}?)(?=\s*(?:[!?.:;|(]|\s[-–—]\s|,\s|\bfor\b|\band\b|$))",
-    r"\b(?i:at)\s+(?P<c>[A-Z0-9][\w&.'’ -]{1,60}?)(?=\s*(?:[!?.;|]|\s[-–—]\s|$))",
+    r"\b(?i:at)\s+(?P<c>[A-Z0-9][\w&.'’ -]{1,60}?)(?=\s*(?:[!?.;|]|\s[-–—]\s|\sby\b|$))",
     # "interest in (joining) Citi!"
     r"(?i:interest in (?:joining |working (?:at|with|for) )?)(?!(?i:the|our|a|an|this)\b)(?P<c>[A-Z0-9][\w&.'’ -]{1,60}?)(?=\s*(?:[!?.;,|]|\s(?:and|for|as)\b|$))",
     # "applying to Aurora", "Application With ZEFR", "Applying to Ensign Services"
-    r"(?i:(?:applying|applied|application|apply)\s+(?:to|with|at)\s+(?:the\s+)?)(?P<c>[A-Z0-9][\w&.,'’() -]{1,70}?)(?=\s*(?:[!?.;|]|\s[-–—]\s|,\s|\bfor\b|$))",
+    r"(?i:(?:applying|applied|application|apply)\s+(?:to|with|at)\s+(?:the\s+)?)(?P<c>[A-Z0-9][\w&.,'’() -]{1,70}?)(?=\s*(?:[!?.;|]|\s[-–—]\s|,\s|\bfor\b|\band\s+(?:are|we|will|have|is|our)\b|$))",
     # lowercase-first names like "eClerx": "Application with eClerx"
     r"(?i:(?:applying|applied|application|apply)\s+(?:to|with|at)\s+)(?!(?i:the|our|a|an|this|your|us)\b)(?P<c>[a-z][A-Z][\w&.'’ -]{1,60}?)(?=\s*(?:[!?.;|]|\s[-–—]\s|$))",
     # "you're interested in Levanta and our mission"
@@ -147,9 +150,23 @@ _COMPANY_PATTERNS = [
     r"\|\s*(?P<c>[A-Z0-9][^|\n]{1,60})\s*$",
     # "Leidos -Thank You For Applying ..."
     r"^(?P<c>[A-Z0-9][\w&.'’ ]{1,40}?)\s*[-–—:]\s*(?i:thank)",
+    # "FedEx Freight Application Status Update"
+    r"^(?P<c>[A-Z0-9][\w&.'’ ]{1,40}?)\s+(?i:application|candidate)\s+(?i:status\s+)?(?i:update)",
+    # Sign-offs like "Morgan Stanley Talent Acquisition"
+    r"^(?P<c>[A-Z0-9][\w&.'’ ]{1,40}?)(?:\s+(?:Global|Careers))?\s+(?:Talent Acquisition|Recruiting|Recruitment|Human Resources)(?:\s+Team)?\s*$",
 ]
 
+# Words that mark a company name even next to a role word ("Ascent Developer Solutions").
+_COMPANY_WORDS = re.compile(
+    r"\b(solutions|technologies|systems|labs|holdings|partners|inc|llc|corp|corporation|ltd|bank|cooperative)\b",
+    re.IGNORECASE,
+)
+# "... Intern and are currently reviewing ...": the sentence carries on after the role.
+_ROLE_END = re.compile(r"\s+and\s+(?:are|we|will|have|is|our)\b.*", re.IGNORECASE | re.DOTALL)
+
 _ROLE_PATTERNS = [
+    r"for the position\s*[-–:]\s*(?P<r>[^!?\n]{3,90}?)(?=\s{2,}|\s+We\b|[.!]|$)",
+    r"^(?P<r>[^!?|\n]{3,90}?)\s+Application\s+(?:Status\s+)?Update",
     r"(?:application|applying|applied)\s+(?:for|to)\s+(?:the\s+|our\s+)?(?P<r>[^!?\n]{3,90}?)\s+(?:role|position|job|opportunity)?\s*(?:at|with)\s+[A-Z]",
     r"(?:for|in|to)\s+(?:the|our)\s+(?P<r>[^!?\n]{3,90}?)\s+(?:role|position|opportunity|job|internship|opening)\b",
     r"(?:position|role) of\s+(?P<r>[^!?.,\n]{3,90})",
@@ -180,7 +197,7 @@ def _company_from_text(text: str) -> str:
     for pattern in _COMPANY_PATTERNS:
         for match in re.finditer(pattern, text, flags=re.MULTILINE):
             candidate = _clean(match.group("c"))
-            if not candidate or len(candidate) > 60 or _looks_like_role(candidate):
+            if not candidate or len(candidate) > 60 or (_looks_like_role(candidate) and not _COMPANY_WORDS.search(candidate)):
                 continue
             if candidate.lower() in {"you", "us", "our team", "manan", "this", "it", "the team"}:
                 continue
@@ -192,6 +209,11 @@ def _company_from_sender(sender: str) -> str:
     name, address = parseaddr(sender)
     name = re.sub(r"^.{1,30}?\s+from\s+", "", name, flags=re.IGNORECASE)  # "Miles from Avis Budget"
     name = re.sub(r"^(?:donotreply|do-?not-?reply|no-?reply)[_ -]+|[_ -]+(?:hr|careers|jobs)$", "", name, flags=re.IGNORECASE)
+    if _JOB_SITES.search(name):
+        name = _clean(re.sub(r"\s*(?:@|-)?\s*" + _JOB_SITES.pattern + r"\s*", " ", name, flags=re.IGNORECASE))
+        name = re.sub(r"\b(?:notifications?|support|system)\b", "", name, flags=re.IGNORECASE).strip()
+        if len(name) < 3 or "@" in name:  # "ms workday", "Workday@bah.com": use the address instead
+            name = ""
     cleaned = _clean(_SENDER_NOISE.sub("", name.replace("’s", "").replace("'s", "")))
     cleaned = re.sub(r"[,.]+$", "", cleaned).strip()
     if name and not _GENERIC_SENDERS.match(name.strip()) and len(cleaned) >= 2:
@@ -209,7 +231,7 @@ def _role_from_text(text: str) -> str:
     for pattern in _ROLE_PATTERNS:
         match = re.search(pattern, text, flags=re.IGNORECASE | re.MULTILINE)
         if match:
-            role = _clean(match.group("r"))
+            role = _clean(_ROLE_END.sub("", match.group("r")))
             if role and _looks_like_role(role) and len(role) <= 90:
                 return role
     return ""
@@ -219,4 +241,6 @@ def extract(email: Email) -> Extracted:
     first_lines = "\n".join(email.text.splitlines()[:15])[:1500]
     company = _company_from_text(email.subject) or _company_from_text(first_lines) or _company_from_sender(email.sender)
     role = _role_from_text(email.subject) or _role_from_text(first_lines)
+    if role.lower() == company.lower():  # "Thank you for applying to Ascent Developer Solutions"
+        role = ""
     return Extracted(company=company, role=role)

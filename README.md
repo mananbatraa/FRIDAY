@@ -8,7 +8,7 @@ Sheet it writes `applications.csv` and `emails.csv`.
 
 ## How it works
 
-1. Searches Gmail (read-only) for job-related emails from the last `DAYS` days.
+1. Searches Gmail for job-related emails from the last `DAYS` days.
 2. Sorts each new email into a kind: **Applied**, **Assessment**, **Interview**,
    **Offer**, **Rejected**, **Verification** (security codes, identity checks)
    or **Other**, and finds the company and role.
@@ -20,6 +20,12 @@ Sheet it writes `applications.csv` and `emails.csv`.
    which can come at any stage. Your Notes column is never touched.
 4. Logs every processed email in the **Emails** tab, so nothing is counted
    twice and you can check why a row has its status.
+5. Moves each new job email out of the inbox into a Gmail folder (label):
+   - **USA Jobs**: application received / thanks for applying, and rejections.
+   - **USA Jobs/Actions to be Taken**: online assessments, interviews and offers.
+
+   Verification and other emails stay where they are. To also sort emails read
+   on earlier runs, run once with `--sort-old`. FRIDAY never sends or deletes mail.
 
 ## One-time setup (about 20 minutes)
 
@@ -50,7 +56,8 @@ python -m tracker.main             # saves to the Sheet / CSV files
 python -m tracker.main --days 90   # look further back
 ```
 
-The login creates `token.json`. Keep it and `credentials.json` private (both
+The login creates `token.json`. If you logged in before FRIDAY moved emails
+into folders, it asks you to log in once more to allow that. Keep it and `credentials.json` private (both
 are in `.gitignore`).
 
 ## Everyday use (Mac)

@@ -3,6 +3,7 @@
     python -m tracker.main              # update the Sheet (or the CSV files)
     python -m tracker.main --dry-run    # print what it found without saving
     python -m tracker.main --days 7     # only look at the last 7 days
+    python -m tracker.main --sort-old   # also move emails read on earlier runs into folders
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ warnings.filterwarnings("ignore", message=".*OpenSSL.*")
 
 from . import llm
 from .config import Config
+from .folders import by_folder
 from .job_emails import DEFAULT_QUERY, VERIFICATION
 from .models import normalize_company
 
@@ -32,6 +34,8 @@ def main(argv=None) -> int:
     parser.add_argument("--background", action="store_true",
                         help="for scheduled runs: never open a browser, show a Mac notification for changes")
     parser.add_argument("--no-claude", action="store_true", help="use the built-in rules even if a Claude key is set")
+    parser.add_argument("--sort-old", action="store_true",
+                        help="also move job emails read on earlier runs into the USA Jobs folders")
     args = parser.parse_args(argv)
 
     from .gmail_client import GmailClient
@@ -58,6 +62,7 @@ def main(argv=None) -> int:
         apps, logged = [], []
         print("Rebuilding from scratch: re-reading every matching email")
     seen = {r.get("Message ID") for r in logged}
+    first_new = len(logged)
 
     reader = None
     if not args.no_claude and llm.available():
@@ -112,14 +117,29 @@ def main(argv=None) -> int:
         notify(f"FRIDAY: {len(changes)} update{'s' if len(changes) != 1 else ''}",
                "; ".join(c[2:] for c in changes[:3]) + (" …" if len(changes) > 3 else ""))
 
+    folders = by_folder(logged if args.sort_old else logged[first_new:])
     if args.dry_run:
+        for folder, ids in folders.items():
+            print(f"Would move {len(ids)} emails to {folder}")
         print("\nDry run: nothing saved.")
         return 0
     app_table.save(apps)
     email_table.save(logged)
     where = "Google Sheet" if config.sheet_id else "applications.csv and emails.csv"
     print(f"\nSaved {len(apps)} applications to {where}")
+    move_to_folders(gmail, folders)
     return 0
+
+
+def move_to_folders(gmail, folders: dict[str, list[str]]) -> None:
+    from googleapiclient.errors import HttpError
+
+    try:
+        for folder in folders:
+            gmail.move(folders[folder], gmail.label_id(folder))
+            print(f"Moved {len(folders[folder])} emails to {folder}")
+    except HttpError as e:
+        print(f"Couldn't move emails into Gmail folders: {e}")
 
 
 if __name__ == "__main__":

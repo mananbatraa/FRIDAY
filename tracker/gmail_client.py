@@ -46,6 +46,23 @@ class GmailClient:
             labels=tuple(msg.get("labelIds", [])),
         )
 
+    def label_id(self, name: str) -> str:
+        """ID of the Gmail label (folder) called `name`, creating it if it's missing."""
+        labels = self.service.users().labels().list(userId="me").execute(num_retries=RETRIES)
+        for label in labels.get("labels", []):
+            if label["name"].lower() == name.lower():
+                return label["id"]
+        if "/" in name:  # Gmail only nests a label when its parent exists
+            self.label_id(name.rsplit("/", 1)[0])
+        body = {"name": name, "labelListVisibility": "labelShow", "messageListVisibility": "show"}
+        return self.service.users().labels().create(userId="me", body=body).execute(num_retries=RETRIES)["id"]
+
+    def move(self, message_ids: list[str], label_id: str) -> None:
+        """Like Gmail's "Move to": add the label and take the messages out of the inbox."""
+        for start in range(0, len(message_ids), 1000):  # batchModify takes at most 1000 IDs
+            body = {"ids": message_ids[start:start + 1000], "addLabelIds": [label_id], "removeLabelIds": ["INBOX"]}
+            self.service.users().messages().batchModify(userId="me", body=body).execute(num_retries=RETRIES)
+
 
 def _decode(data: str) -> str:
     return base64.urlsafe_b64decode(data.encode()).decode("utf-8", errors="replace")
@@ -72,5 +89,5 @@ def _html_to_text(markup: str) -> str:
 def _body_text(payload) -> str:
     plain = _walk(payload, "text/plain")
     if plain:
-        return "\n".join(plain)
+        return html.unescape("\n".join(plain)).replace("\xa0", " ")
     return "\n".join(_html_to_text(h) for h in _walk(payload, "text/html"))

@@ -8,6 +8,26 @@ from tracker.models import Email
 
 # sender, subject, body, kind, company, role ("" = don't check)
 CASES = [
+    ("donotreply_ms workday <ms@myworkday.com>", "Thank You for Your Application!",
+     "Dear Naman,\nThank you for your interest in the AI Development Solution Engineer\n- Associate position.\n"
+     "Kind Regards,\nMorgan Stanley Talent Acquisition", CONFIRMATION, "Morgan Stanley", ""),
+    ("BCI Brands <noreply@candidates.workablemail.com>", "Halogen Assistant Designer - BCI Brands",
+     "Hi Naman Dewan,\nWe have received your application to BCI Brands and are currently in the\n"
+     "process of reviewing", CONFIRMATION, "BCI Brands", ""),
+    ("no-reply@us.greenhouse-mail.io", "Thank you for applying to Ascent Developer Solutions",
+     "Naman,\nThanks for applying to Ascent Developer Solutions.", CONFIRMATION, "Ascent Developer Solutions", ""),
+    ("freight@myworkday.com", "FedEx Freight Application Status Update",
+     "We appreciate your interest in employment opportunities with\nFedEx Freight. This is to notify you that the "
+     "company has decided\nto move forward with other candidates", REJECTED, "FedEx Freight", ""),
+    ("Syngenta Seeds <notification@careers.syngenta.com>", "Thank you for your application / Gracias por tu postulación",
+     "Dear Naman\nWe have received your application for the position of Digital Genomics Prediction Intern "
+     "and are currently reviewing your experience and qualifications.", CONFIRMATION, "Syngenta Seeds",
+     "Digital Genomics Prediction Intern"),
+    ("notify@dayforce.com", "Business Analyst - Pricing & Analytics Application Update",
+     "Hello Naman,We have received your application for the position - Business Analyst - Pricing & Analytics "
+     "We will be reviewing all applicants shortly. Thank you for giving us the opportunity to consider you for the "
+     "Business Analyst - Pricing & Analytics position with OMNIA Partners.", CONFIRMATION, "",
+     "Business Analyst - Pricing & Analytics"),
     ("Miles from Avis Budget <careers@avisbudget.com>",
      "Thank You for Applying to the Accelerate - Deployed Transformation Engineer - Post Grad Opportunity Role with Avis Budget Group",
      "Hello Manan, Thank you for applying", CONFIRMATION, "Avis Budget Group", ""),
