@@ -27,7 +27,8 @@ DEFAULT_QUERY = (
     "OR candidate OR interest OR resume OR position OR role) "
     "OR from:(greenhouse.io OR greenhouse-mail.io OR lever.co OR myworkday.com OR myworkdayjobs.com "
     "OR ashbyhq.com OR smartrecruiters.com OR icims.com OR taleo.net OR jobvite.com OR workablemail.com "
-    "OR successfactors.com OR tsenta)) "
+    "OR successfactors.com OR tsenta OR greenhouse-jobs.com OR paycomonline.com) "
+    "OR subject:(\"one-time password\" OR OTP OR \"verify your email\" OR \"verification code\" OR \"security code\")) "
     "-category:promotions"
 )
 
@@ -43,7 +44,7 @@ _MARKETING_WORDS = ("masterclass", "webinar", "unsubscribe from this newsletter"
 _KIND_PHRASES = [
     (VERIFICATION, (
         "security code", "verification code", "verify your", "confirm your identity", "confirm your email",
-        "activate your account", "candidate account", "reset your password", "one-time code",
+        "activate your account", "candidate account", "reset your password", "one-time code", "one-time password",
     )),
     (OFFER, ("pleased to offer you", "extend you an offer", "extend an offer to you", "offer of employment",
              "your offer letter", "attached offer letter", "congratulations on your offer")),
@@ -86,7 +87,27 @@ def is_marketing(email: Email) -> bool:
     return any(w in text for w in _MARKETING_WORDS)
 
 
+# Codes also come from airlines, banks and GitHub; those aren't job emails.
+_JOB_CONTEXT = re.compile(
+    r"\b(candidates?|recruit\w*|applicants?|your application|job application|careers? (?:portal|site|account)|"
+    r"talent (?:network|community))\b",
+    re.IGNORECASE,
+)
+
+
+def _about_a_job(email: Email) -> bool:
+    address = parseaddr(email.sender)[1].lower()
+    return (any(site in address for site in _GENERIC_DOMAINS if site != "gmail.com")
+            or bool(re.search(r"career|recruit|talent|hiring|\bjobs?\b", email.sender, re.IGNORECASE))
+            or bool(_JOB_CONTEXT.search(f"{email.subject}\n{email.text[:4000]}")))
+
+
 def classify(email: Email) -> str:
+    kind = _classify(email)
+    return OTHER if kind == VERIFICATION and not _about_a_job(email) else kind
+
+
+def _classify(email: Email) -> str:
     if is_marketing(email):
         return OTHER
     subject_kind = _match_kind(email.subject)
@@ -122,7 +143,8 @@ _GENERIC_DOMAINS = (
     "gmail.com", "greenhouse.io", "greenhouse-mail.io", "lever.co", "myworkday.com", "myworkdayjobs.com",
     "ashbyhq.com", "smartrecruiters.com", "icims.com", "taleo.net", "jobvite.com", "workablemail.com",
     "successfactors.com", "tsenta", "applytojob.com", "bamboohr.com", "recruitee.com", "breezy.hr", "paylocity.com",
-    "ultipro.com", "oraclecloud.com", "eightfold.ai", "phenom", "avature", "jazzhr", "dayforce",
+    "ultipro.com", "oraclecloud.com", "eightfold.ai", "phenom", "avature", "jazzhr", "dayforce", "greenhouse-jobs.com",
+    "paycomonline.com",
 )
 _SENDER_NOISE = re.compile(
     r"\b(hiring team|hiring|recruiting team|recruiting|recruitment|talent acquisition|talent team|talent|careers?|"

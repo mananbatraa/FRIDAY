@@ -8,6 +8,15 @@ from tracker.models import Email
 
 # sender, subject, body, kind, company, role ("" = don't check)
 CASES = [
+    ("Wipro Notifications <notifications@broadcast.wipro.com>", "Your One-Time Password (OTP) for Profile Creation",
+     "Your One-Time Password (OTP) is 452323. To proceed, please visit our candidate portal and enter the OTP.",
+     VERIFICATION, "", ""),
+    ("systemmessage@paycomonline.com", "Verify Your Email",
+     "Thank you for creating an account with ANDREW WOMMACK MINISTRIES INC! Use the 6-digit code", VERIFICATION, "", ""),
+    ("United Airlines <notifications@united.com>", "Here's your verification code",
+     "Your verification code is 123456.", OTHER, "", ""),
+    ("GitHub <noreply@github.com>", "[GitHub] Sudo email verification code",
+     "Here is your GitHub sudo authentication code", OTHER, "", ""),
     ("donotreply_ms workday <ms@myworkday.com>", "Thank You for Your Application!",
      "Dear Naman,\nThank you for your interest in the AI Development Solution Engineer\n- Associate position.\n"
      "Kind Regards,\nMorgan Stanley Talent Acquisition", CONFIRMATION, "Morgan Stanley", ""),
