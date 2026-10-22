@@ -227,6 +227,13 @@ def _company_from_text(text: str) -> str:
     return ""
 
 
+# Workday address names that don't read as the company on their own.
+_WORKDAY_TENANTS = {
+    "selinc": "SEL", "freight": "FedEx Freight", "elevancehealth": "Elevance Health",
+    "trinitylifesciences": "Trinity Life Sciences", "bah": "Booz Allen Hamilton", "ms": "Morgan Stanley",
+}
+
+
 def _company_from_sender(sender: str) -> str:
     name, address = parseaddr(sender)
     name = re.sub(r"^.{1,30}?\s+from\s+", "", name, flags=re.IGNORECASE)  # "Miles from Avis Budget"
@@ -241,6 +248,10 @@ def _company_from_sender(sender: str) -> str:
     if name and not _GENERIC_SENDERS.match(name.strip()) and len(cleaned) >= 2:
         return cleaned.title() if cleaned.islower() else cleaned
     domain = address.rsplit("@", 1)[-1].lower() if "@" in address else ""
+    local = address.split("@", 1)[0].lower()
+    # Workday sends from <company>@myworkday.com, e.g. copart@myworkday.com.
+    if domain.endswith("myworkday.com") and len(local) >= 3 and not _GENERIC_SENDERS.match(local):
+        return _WORKDAY_TENANTS.get(local, local.title())
     if domain and not any(g in domain for g in _GENERIC_DOMAINS):
         parts = [p for p in domain.split(".") if p not in {"mail", "email", "careers", "jobs", "hr", "talent", "us", "com",
                                                           "co", "io", "ai", "net", "org", "in", "uk"}]

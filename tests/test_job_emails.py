@@ -8,6 +8,8 @@ from tracker.models import Email
 
 # sender, subject, body, kind, company, role ("" = don't check)
 CASES = [
+    ("copart@myworkday.com", "Thank You For Applying!", "Thank you for applying.", CONFIRMATION, "Copart", ""),
+    ("selinc@myworkday.com", "Thank you for your application", "We received it.", CONFIRMATION, "SEL", ""),
     ("Wipro Notifications <notifications@broadcast.wipro.com>", "Your One-Time Password (OTP) for Profile Creation",
      "Your One-Time Password (OTP) is 452323. To proceed, please visit our candidate portal and enter the OTP.",
      VERIFICATION, "", ""),
