@@ -28,7 +28,7 @@ DEFAULT_QUERY = (
     "OR from:(greenhouse.io OR greenhouse-mail.io OR lever.co OR myworkday.com OR myworkdayjobs.com "
     "OR ashbyhq.com OR smartrecruiters.com OR icims.com OR taleo.net OR jobvite.com OR workablemail.com "
     "OR successfactors.com OR tsenta OR greenhouse-jobs.com OR paycomonline.com) "
-    "OR subject:(\"one-time password\" OR OTP OR \"verify your email\" OR \"verification code\" OR \"security code\")) "
+    "OR subject:(\"one-time password\" OR OTP OR \"verify your email\" OR \"verification code\" OR \"security code\" OR \"confirm your identity\" OR \"verify your identity\")) "
     "-category:promotions"
 )
 
