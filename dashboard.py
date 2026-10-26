@@ -4,7 +4,7 @@
     streamlit run dashboard.py -- --demo     # sample data, no Gmail needed
 
 Reads the same data the tracker writes: the Google Sheet if SHEET_ID is set in
-.env, otherwise applications.csv, emails.csv and todos.csv in this folder.
+.env, otherwise applications.csv, emails.csv, todos.csv and outreach.csv in this folder.
 """
 from __future__ import annotations
 
@@ -27,8 +27,12 @@ import streamlit.components.v1 as components  # noqa: E402
 
 from tracker import demo  # noqa: E402
 from tracker.config import Config  # noqa: E402
+from tracker.outreach import (  # noqa: E402
+    FOLLOW_UP_DUE, FOLLOWED_UP, REPLIED, STATUSES as OUTREACH_STATUSES, WAITING,
+)
 from tracker.storage import (  # noqa: E402
-    APP_COLUMNS, EMAIL_COLUMNS, TODO_COLUMNS, CsvTable, open_todo_table, open_tables,
+    APP_COLUMNS, EMAIL_COLUMNS, OUTREACH_COLUMNS, TODO_COLUMNS, CsvTable, open_outreach_table, open_todo_table,
+    open_tables,
 )
 
 DEMO = "--demo" in sys.argv[1:]
@@ -42,6 +46,7 @@ MODES = ["Remote", "Hybrid", "Onsite"]
 RANGES = {"7 days": 7, "30 days": 30, "90 days": 90, "All time": None}
 ROUND_COLUMNS = ["When", "Round", "Interviewer", "Meeting link", "Prep doc"]
 EDITABLE = ["Status", "Work mode", "Next action", "Notes"]
+OUTREACH_EDITABLE = ["Name", "Company", "Status", "Notes"]
 PIPELINE_PREVIEW = 8
 
 # Palette (see .streamlit/config.toml)
@@ -133,6 +138,11 @@ st.markdown(
     .b-assessment {{ color: {GOLD}; background: rgba(245,185,66,.1); border-color: #8f6a22; }}
     .b-applied {{ color: #9db6c6; background: rgba(157,182,198,.08); border-color: #2f4b60; }}
     .b-rejected {{ color: #e5484d; background: rgba(229,72,77,.08); border-color: #6f2a2d; opacity: .8; }}
+    .b-replied {{ color: #5dffa8; background: rgba(93,255,168,.1); border-color: #2e8f5f; }}
+    .b-follow-up-due {{ color: {GOLD}; background: rgba(245,185,66,.1); border-color: #8f6a22;
+        box-shadow: 0 0 10px rgba(245,185,66,.22); }}
+    .b-waiting, .b-followed-up {{ color: #9db6c6; background: rgba(157,182,198,.08); border-color: #2f4b60; }}
+    .b-no-reply, .b-bounced {{ color: #e5484d; background: rgba(229,72,77,.08); border-color: #6f2a2d; opacity: .8; }}
 
     /* Incoming 48 hours */
     div[class*="st-key-slot_"] {{ border-left: 2px solid {GOLD}; padding: .1rem 0 .4rem .9rem; margin-bottom: .6rem; }}
@@ -192,7 +202,8 @@ def tables():
         folder = HERE / ".demo"
         return (CsvTable(str(folder / "applications.csv"), APP_COLUMNS),
                 CsvTable(str(folder / "emails.csv"), EMAIL_COLUMNS),
-                CsvTable(str(folder / "todos.csv"), TODO_COLUMNS)), "sample data"
+                CsvTable(str(folder / "todos.csv"), TODO_COLUMNS),
+                CsvTable(str(folder / "outreach.csv"), OUTREACH_COLUMNS)), "sample data"
     config = Config.load()
     creds = None
     if config.sheet_id:
@@ -200,14 +211,16 @@ def tables():
 
         creds = get_credentials(config.credentials_file, config.token_file)
     app_table, email_table = open_tables(creds, config.sheet_id)
-    return ((app_table, email_table, open_todo_table(creds, config.sheet_id)),
+    outreach_table = open_outreach_table(creds, config.sheet_id) if config.outreach_query or not config.sheet_id \
+        else None  # don't add an empty Outreach tab to the Sheet until tracking is on
+    return ((app_table, email_table, open_todo_table(creds, config.sheet_id), outreach_table),
             "Google Sheet" if config.sheet_id else "applications.csv")
 
 
 @st.cache_data(ttl=120, show_spinner="Retrieving your applications…")
 def load() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    (app_table, email_table, todo_table), _ = tables()
-    if DEMO and not os.path.exists(app_table.path):
+    (app_table, email_table, todo_table, outreach_table), _ = tables()
+    if DEMO and not (os.path.exists(app_table.path) and os.path.exists(outreach_table.path)):
         demo.seed(os.path.dirname(app_table.path))
     apps = pd.DataFrame(app_table.load(), columns=APP_COLUMNS).fillna("")
     emails = pd.DataFrame(email_table.load(), columns=EMAIL_COLUMNS).fillna("")
@@ -216,6 +229,24 @@ def load() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         dates = pd.to_datetime(df[col], errors="coerce")
         df[col] = [d.date() if pd.notna(d) else None for d in dates]  # None, not NaT, for blanks
     return apps, emails, todos
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def load_outreach() -> pd.DataFrame:
+    table = tables()[0][3]
+    rows = pd.DataFrame(table.load() if table else [], columns=OUTREACH_COLUMNS).fillna("")
+    for col in ("Sent on", "Last reply", "Follow up on"):
+        dates = pd.to_datetime(rows[col], errors="coerce")
+        rows[col] = [d.date() if pd.notna(d) else None for d in dates]
+    return rows
+
+
+def save_outreach(df: pd.DataFrame) -> None:
+    rows = df.copy()
+    for col in ("Sent on", "Last reply", "Follow up on"):
+        rows[col] = rows[col].apply(_iso)
+    tables()[0][3].save(rows.fillna("").to_dict("records"))
+    load_outreach.clear()
 
 
 def _iso(d) -> str:
@@ -250,6 +281,7 @@ def check_email_now() -> None:
             cwd=HERE, capture_output=True, text=True,
         )
     load.clear()
+    load_outreach.clear()
     output = result.stdout + result.stderr
     changes = [line.strip() for line in output.splitlines() if line.startswith(("  +", "  ~"))]
     if result.returncode != 0:
@@ -288,7 +320,7 @@ def rounds_json(df: pd.DataFrame) -> str:
 
 
 def badge(status: str) -> str:
-    return f'<span class="badge b-{html.escape(status.lower())}">{html.escape(status or "Unknown")}</span>'
+    return f'<span class="badge b-{html.escape(status.lower().replace(" ", "-"))}">{html.escape(status or "Unknown")}</span>'
 
 
 def ago(d) -> str:
@@ -359,6 +391,7 @@ def tick(kind: str, idx: int, key: str) -> None:
 # ---------------------------------------------------------------- header
 
 apps, emails, todos = load()
+outreach = load_outreach()
 _, source = tables()
 today = date.today()
 now = datetime.now()
@@ -388,6 +421,9 @@ if upcoming:
     summary.append(f"<b>{len(upcoming)}</b> round{'s' if len(upcoming) != 1 else ''} in the next 48 hours")
 if open_todos:
     summary.append(f"<b>{open_todos}</b> follow-up{'s' if open_todos != 1 else ''}")
+due_outreach = int((outreach["Status"] == FOLLOW_UP_DUE).sum())
+if due_outreach:
+    summary.append(f"<b>{due_outreach}</b> outreach email{'s' if due_outreach != 1 else ''} to follow up")
 summary.append(random_cheer)
 
 st.markdown(
@@ -414,6 +450,7 @@ with top[1]:
         st.rerun()
     if b[2].button("", icon=":material/refresh:", help="Reload data", width="stretch"):
         load.clear()
+        load_outreach.clear()
         st.rerun()
 
 if "flash" in st.session_state:
@@ -427,7 +464,8 @@ if apps.empty:
     st.stop()
 
 in_mode = apps if mode == "All" else apps[apps["Work mode"] == mode]
-today_tab, all_apps, history, log = st.tabs(["Today", "All applications", "Company history", "Email log"])
+today_tab, all_apps, outreach_tab, history, log = st.tabs(
+    ["Today", "All applications", "Outreach", "Company history", "Email log"])
 
 # ---------------------------------------------------------------- today (bento grid)
 
@@ -611,7 +649,7 @@ with today_tab:
 
     # Tile 5: activity
     with side, st.container(key="tile_activity"):
-        st.markdown("### Outreach log")
+        st.markdown("### Application log")
         period = st.segmented_control("Show", list(RANGES), default="30 days", key="range",
                                       label_visibility="collapsed") or "30 days"
         days = RANGES[period]
@@ -690,6 +728,94 @@ with all_apps:
         save_apps(updated)
         flash("Saved your changes")
         st.rerun()
+
+# ---------------------------------------------------------------- outreach (cold emails you sent)
+
+with outreach_tab:
+    if outreach.empty:
+        st.info("No outreach emails yet. Set OUTREACH_QUERY in .env to a Gmail search that finds the emails your "
+                'Mailer sends, for example `in:sent newer_than:60d subject:"Seeking guidance"`, then press the mail '
+                "button. FRIDAY logs them here and flags replies and follow-ups. It never sends anything.")
+    else:
+        sent_n = len(outreach)
+        replied_n = int((outreach["Status"] == REPLIED).sum())
+        m = st.columns(4)
+        m[0].metric("Sent", sent_n)
+        m[1].metric("Replied", replied_n, f"{replied_n / sent_n:.0%} reply rate", delta_color="off")
+        m[2].metric("Follow-up due", due_outreach)
+        m[3].metric("Waiting", int(outreach["Status"].isin([WAITING, FOLLOWED_UP]).sum()))
+
+        due = outreach[outreach["Status"] == FOLLOW_UP_DUE].sort_values("Sent on")
+        if not due.empty:
+            with st.container(key="tile_follow_ups"):
+                st.markdown("### Follow up")
+                st.markdown('<div class="tile-note">No answer yet. One short, polite follow-up in the same thread, '
+                            'then let it go.</div>', unsafe_allow_html=True)
+                for idx, row in due.head(10).iterrows():
+                    with st.container(key=f"row_out_{idx}"):
+                        c = st.columns([3.6, 1.6, 0.6], vertical_alignment="center")
+                        c[0].markdown(f'<div class="co">{html.escape(row["Name"] or row["Email"])}</div>'
+                                      f'<div class="role">{html.escape(row["Company"] or row["Email"])} · '
+                                      f'{html.escape(row["Subject"])}</div>', unsafe_allow_html=True)
+                        c[1].markdown(f'<div class="touch">sent {ago(row["Sent on"]).lower()}</div>',
+                                      unsafe_allow_html=True)
+                        if row["Email link"]:
+                            c[2].link_button("", row["Email link"], icon=":material/reply:",
+                                             help="Open the thread to write a follow-up", type="tertiary")
+                if len(due) > 10:
+                    st.caption(f"and {len(due) - 10} more in the table below")
+
+        dated = outreach[outreach["Sent on"].apply(lambda d: isinstance(d, date))]
+        if not dated.empty:
+            per_day = dated.assign(Day=pd.to_datetime(dated["Sent on"]),
+                                   Outcome=dated["Status"].map(lambda s: "Replied" if s == REPLIED else "No reply yet"))
+            chart = alt.Chart(per_day).mark_bar(cornerRadiusTopLeft=2, cornerRadiusTopRight=2).encode(
+                x=alt.X("yearmonthdate(Day):O", title=None,
+                        axis=alt.Axis(format="%b %d", labelAngle=0, labelOverlap=True, ticks=False)),
+                y=alt.Y("count():Q", title=None, axis=alt.Axis(format="d", domain=False, ticks=False, tickCount=4)),
+                color=alt.Color("Outcome:N", scale=alt.Scale(domain=["Replied", "No reply yet"], range=[CYAN, STONE]),
+                                legend=alt.Legend(orient="top", title=None, labelColor=MUTED)),
+                tooltip=[alt.Tooltip("yearmonthdate(Day):T", title="Day", format="%a %b %d"), "Outcome",
+                         alt.Tooltip("count():Q", title="Emails")],
+            ).properties(height=150)
+            st.altair_chart(chart_style(chart), use_container_width=True)
+
+        o1, o2 = st.columns([3, 2])
+        picked = o1.pills("Status", list(OUTREACH_STATUSES), selection_mode="multi", key="outreach_pills")
+        needle = o2.text_input("Search name, company or email", placeholder="e.g. stripe", key="outreach_search")
+        view = outreach if not picked else outreach[outreach["Status"].isin(picked)]
+        if needle:
+            hay = (view["Name"] + " " + view["Company"] + " " + view["Email"]).str.lower()
+            view = view[hay.str.contains(needle.lower(), regex=False)]
+        view = view.sort_values("Sent on", ascending=False)
+        st.caption(f"{len(view)} of {sent_n} emails · data from {source} · Replied and Bounced stay put, so mark a "
+                   "row Replied yourself if they answered from another address")
+        edited = st.data_editor(
+            view, hide_index=True, width="stretch", height=460, key="outreach_editor",
+            column_order=["Sent on", "Name", "Company", "Email", "Status", "Follow up on", "Last reply",
+                          "Email link", "Notes"],
+            disabled=["Sent on", "Email", "Follow up on", "Last reply", "Email link"],
+            column_config={
+                "Status": st.column_config.SelectboxColumn(options=list(OUTREACH_STATUSES), required=True),
+                "Email link": st.column_config.LinkColumn("Thread", display_text="Open"),
+                "Sent on": st.column_config.DateColumn(format="MMM D"),
+                "Follow up on": st.column_config.DateColumn(format="MMM D"),
+                "Last reply": st.column_config.DateColumn(format="MMM D"),
+                "Notes": st.column_config.TextColumn(width="large"),
+            },
+        )
+        changed = (edited[OUTREACH_EDITABLE].fillna("") != view[OUTREACH_EDITABLE].fillna("")).any(axis=1)
+        n_changed = int(changed.sum())
+        if st.button(f"Save {n_changed} change{'s' if n_changed != 1 else ''}", type="primary",
+                     disabled=not n_changed, key="save_outreach"):
+            updated = outreach.copy()
+            for idx in edited.index[changed]:
+                updated.loc[idx, OUTREACH_EDITABLE] = edited.loc[idx, OUTREACH_EDITABLE].fillna("")
+                if updated.loc[idx, "Status"] == REPLIED and outreach.loc[idx, "Status"] != REPLIED:
+                    updated.loc[idx, "Last reply"] = today
+            save_outreach(updated)
+            flash("Saved your outreach changes")
+            st.rerun()
 
 # ---------------------------------------------------------------- company history
 

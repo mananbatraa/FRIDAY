@@ -4,6 +4,9 @@
     python -m tracker.main --dry-run    # print what it found without saving
     python -m tracker.main --days 7     # only look at the last 7 days
     python -m tracker.main --sort-old   # also sort emails read on earlier runs (folders, old codes binned)
+
+With OUTREACH_QUERY set in .env it also logs the cold emails you sent and
+checks them for replies (see tracker/outreach.py).
 """
 from __future__ import annotations
 
@@ -17,7 +20,7 @@ from datetime import date, datetime, timezone
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", message=".*OpenSSL.*")
 
-from . import llm
+from . import llm, outreach
 from .config import Config
 from .folders import CODE_KEEP, by_folder, recent_codes
 from .job_emails import DEFAULT_QUERY, VERIFICATION
@@ -38,12 +41,13 @@ def main(argv=None) -> int:
     parser.add_argument("--sort-old", action="store_true",
                         help="also sort job emails read on earlier runs: move them into the USA Jobs folders "
                              "and bin old security-code emails")
+    parser.add_argument("--no-outreach", action="store_true", help="skip checking your sent outreach emails")
     args = parser.parse_args(argv)
 
     from .gmail_client import GmailClient
     from .google_auth import LoginNeeded, get_credentials
     from .notify import notify
-    from .storage import open_tables
+    from .storage import open_outreach_table, open_tables
     from .tracker import apply_email
 
     config = Config.load()
@@ -115,6 +119,18 @@ def main(argv=None) -> int:
         for e in unknown[-10:]:
             print(f"  ? {e.date}  {e.sender}  |  {e.subject}")
 
+    outreach_table = outreach_rows = None
+    if config.outreach_query and not args.no_outreach:
+        outreach_table = open_outreach_table(creds, config.sheet_id)
+        outreach_rows = outreach_table.load()
+        sent, news = outreach.update(gmail, outreach_rows, config.outreach_query, date.today(), config.follow_up_days)
+        print(f"\nOutreach: {len(sent)} sent emails logged, {len(outreach_rows)} tracked")
+        for line in sent[-10:] + news:
+            print(f"  {line}")
+        if len(sent) > 10:
+            print(f"  (and {len(sent) - 10} more sent emails)")
+        changes += news
+
     if args.background and changes:
         notify(f"FRIDAY: {len(changes)} update{'s' if len(changes) != 1 else ''}",
                "; ".join(c[2:] for c in changes[:3]) + (" …" if len(changes) > 3 else ""))
@@ -131,6 +147,9 @@ def main(argv=None) -> int:
     email_table.save(logged)
     where = "Google Sheet" if config.sheet_id else "applications.csv and emails.csv"
     print(f"\nSaved {len(apps)} applications to {where}")
+    if outreach_table:
+        outreach_table.save(outreach_rows)
+        print(f"Saved {len(outreach_rows)} outreach emails to " + ("the Outreach tab" if config.sheet_id else "outreach.csv"))
     move_to_folders(gmail, folders, codes)
     return 0
 

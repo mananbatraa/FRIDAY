@@ -16,6 +16,11 @@ APP_COLUMNS = [
 ]
 EMAIL_COLUMNS = ["Date", "Kind", "Company", "Role", "From", "Subject", "Email link", "Message ID"]
 TODO_COLUMNS = ["Task", "Company", "Due", "Done", "Source"]
+# One row per cold email you sent (found in Gmail's Sent mail); see tracker/outreach.py.
+OUTREACH_COLUMNS = [
+    "Sent on", "Name", "Email", "Company", "Subject", "Status", "Last reply", "Follow up on",
+    "Email link", "Thread ID", "Message ID", "Notes",
+]
 
 
 class CsvTable:
@@ -81,3 +86,13 @@ def open_todo_table(creds, sheet_id: str):
 
     sheets = build("sheets", "v4", credentials=creds, cache_discovery=False).spreadsheets()
     return SheetTable(sheets, sheet_id, "To-dos", TODO_COLUMNS)
+
+
+def open_outreach_table(creds, sheet_id: str):
+    """Cold emails you sent and whether they got a reply: an "Outreach" tab, or outreach.csv."""
+    if not sheet_id:
+        return CsvTable("outreach.csv", OUTREACH_COLUMNS)
+    from googleapiclient.discovery import build
+
+    sheets = build("sheets", "v4", credentials=creds, cache_discovery=False).spreadsheets()
+    return SheetTable(sheets, sheet_id, "Outreach", OUTREACH_COLUMNS)
