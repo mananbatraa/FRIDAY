@@ -80,7 +80,8 @@ def thread_status(row: dict, messages: list[dict], today: date, follow_up_days: 
         later = messages[ids.index(row["Message ID"]) + 1:]
     else:  # the original was deleted; judge by date
         later = [m for m in messages if m["date"] >= row["Sent on"]]
-    theirs = [m for m in later if "SENT" not in m["labels"]]
+    mine = _my_addresses(messages)
+    theirs = [m for m in later if "SENT" not in m["labels"] and _address(m["from"]) not in mine]
     replies = [m for m in theirs if not _BOUNCE_SENDERS.search(m["from"]) and not m["auto"]]
     if replies:
         return {"Status": REPLIED, "Last reply": replies[-1]["date"], "Follow up on": ""}
@@ -92,6 +93,19 @@ def thread_status(row: dict, messages: list[dict], today: date, follow_up_days: 
     if follow_ups:
         return {"Status": NO_REPLY if today >= due else FOLLOWED_UP, "Last reply": "", "Follow up on": ""}
     return {"Status": FOLLOW_UP_DUE if today >= due else WAITING, "Last reply": "", "Follow up on": due.isoformat()}
+
+
+def _address(header: str) -> str:
+    return parseaddr(header)[1].lower()
+
+
+def _my_addresses(messages: list[dict]) -> set[str]:
+    """Your own addresses, from the messages in the thread you sent.
+
+    A copy of your own email can land without the SENT label (sent from another
+    app, or to yourself as well), and must not count as their reply.
+    """
+    return {_address(m["from"]) for m in messages if "SENT" in m["labels"]} - {""}
 
 
 def label(row: dict) -> str:
@@ -125,6 +139,8 @@ def update(gmail, rows: list[dict], query: str, today: date, follow_up_days: int
         message = next((m for m in thread(match["threadId"]) or [] if m["id"] == match["id"]), None)
         if not message or "SENT" not in message["labels"] or not message["to"]:
             continue
+        if _address(message["to"]) == _address(message["from"]):
+            continue  # a test email to yourself
         row = new_row(message)
         rows.append(row)
         logged |= {row["Message ID"], row["Thread ID"]}
@@ -161,7 +177,7 @@ def _reply_elsewhere(gmail, row: dict, thread) -> str:
         if match["threadId"] == row["Thread ID"]:
             continue  # same thread: already judged, e.g. an auto-reply
         message = next((m for m in thread(match["threadId"]) or [] if m["id"] == match["id"]), None)
-        if message and not message["auto"] and message["date"] >= row["Sent on"]:
+        if message and "SENT" not in message["labels"] and not message["auto"] and message["date"] >= row["Sent on"]:
             return message["date"]
     return ""
 
