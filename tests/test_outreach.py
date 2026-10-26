@@ -31,6 +31,10 @@ class ThreadStatusTest(unittest.TestCase):
         ooo = msg("m2", "2026-10-02", sender="jane.doe@stripe.com", auto=True)
         self.assertEqual(self.status([SENT, ooo], today="2026-10-09")["Status"], FOLLOW_UP_DUE)
 
+    def test_own_copy_without_sent_label_is_not_a_reply(self):
+        copy = msg("m2", "2026-10-02", sender="Mananbatra2003 Mb <me@gmail.com>")
+        self.assertEqual(self.status([SENT, copy])["Status"], WAITING)
+
     def test_bounce(self):
         bounce = msg("m2", "2026-10-01", sender="Mail Delivery Subsystem <mailer-daemon@googlemail.com>", auto=True)
         self.assertEqual(self.status([SENT, bounce])["Status"], BOUNCED)
