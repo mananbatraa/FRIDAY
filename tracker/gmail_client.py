@@ -23,13 +23,17 @@ class GmailClient:
 
     def search(self, query: str, limit: int = 500) -> list[str]:
         """Return message IDs matching a Gmail search query, newest first."""
-        ids: list[str] = []
+        return [m["id"] for m in self.search_messages(query, limit)]
+
+    def search_messages(self, query: str, limit: int = 500) -> list[dict]:
+        """Like search, but each match is {"id": ..., "threadId": ...}."""
+        found: list[dict] = []
         request = self.service.users().messages().list(userId="me", q=query, maxResults=min(limit, 500))
-        while request is not None and len(ids) < limit:
+        while request is not None and len(found) < limit:
             response = request.execute(num_retries=RETRIES)
-            ids.extend(m["id"] for m in response.get("messages", []))
+            found.extend(response.get("messages", []))
             request = self.service.users().messages().list_next(request, response)
-        return ids[:limit]
+        return found[:limit]
 
     def get(self, message_id: str) -> Email:
         time.sleep(PAUSE_SECONDS)
@@ -45,6 +49,23 @@ class GmailClient:
             text=_body_text(msg["payload"]),
             labels=tuple(msg.get("labelIds", [])),
         )
+
+    def thread(self, thread_id: str) -> list[dict]:
+        """Every message in a Gmail thread, oldest first, with just the headers outreach tracking needs."""
+        time.sleep(PAUSE_SECONDS)
+        thread = self.service.users().threads().get(
+            userId="me", id=thread_id, format="metadata", metadataHeaders=_THREAD_HEADERS,
+        ).execute(num_retries=RETRIES)
+        messages = []
+        for msg in thread.get("messages", []):
+            headers = {h["name"].lower(): h["value"] for h in msg["payload"].get("headers", [])}
+            sent = datetime.fromtimestamp(int(msg["internalDate"]) / 1000, tz=timezone.utc)
+            messages.append({
+                "id": msg["id"], "thread_id": msg["threadId"], "date": sent.date().isoformat(),
+                "from": headers.get("from", ""), "to": headers.get("to", ""), "subject": headers.get("subject", ""),
+                "auto": _is_auto_reply(headers), "labels": tuple(msg.get("labelIds", [])),
+            })
+        return sorted(messages, key=lambda m: m["date"])
 
     def label_id(self, name: str) -> str:
         """ID of the Gmail label (folder) called `name`, creating it if it's missing."""
@@ -75,6 +96,19 @@ class GmailClient:
         for message_id in message_ids:
             time.sleep(PAUSE_SECONDS)
             self.service.users().messages().trash(userId="me", id=message_id).execute(num_retries=RETRIES)
+
+
+_THREAD_HEADERS = ["From", "To", "Subject", "Auto-Submitted", "X-Autoreply", "X-Autorespond", "Precedence"]
+
+
+def _is_auto_reply(headers: dict) -> bool:
+    """Out-of-office and other automatic replies, which shouldn't count as someone answering."""
+    if headers.get("auto-submitted", "no").lower() != "no" or "x-autoreply" in headers or "x-autorespond" in headers:
+        return True
+    if headers.get("precedence", "").lower() == "auto_reply":
+        return True
+    return bool(re.match(r"(?i)\s*(automatic reply|auto(matic)?[- ]?reply|out of (the )?office|auto:)",
+                         headers.get("subject", "")))
 
 
 def _decode(data: str) -> str:

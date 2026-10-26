@@ -2,7 +2,7 @@
 
     streamlit run dashboard.py -- --demo
 
-Writes applications.csv, emails.csv and todos.csv into a folder, with dates
+Writes applications.csv, emails.csv, todos.csv and outreach.csv into a folder, with dates
 relative to today so the "Next 48 hours" tile always has something in it.
 """
 from __future__ import annotations
@@ -11,7 +11,8 @@ import json
 import os
 from datetime import date, datetime, timedelta
 
-from .storage import APP_COLUMNS, EMAIL_COLUMNS, TODO_COLUMNS, CsvTable
+from .outreach import FOLLOW_UP_DUE, FOLLOWED_UP, NO_REPLY, REPLIED, WAITING
+from .storage import APP_COLUMNS, EMAIL_COLUMNS, OUTREACH_COLUMNS, TODO_COLUMNS, CsvTable
 
 TITLE = "Current Search: Q4 Senior IC & Lead Roles"
 
@@ -43,6 +44,21 @@ _APPS = [
     ("Dropbox", "Staff Engineer", "Rejected", 28, 13, "Remote", "", ""),
     ("Lyft", "Senior Engineer, Mapping", "Rejected", 26, 9, "Hybrid", "", ""),
     ("Coinbase", "Lead Engineer", "Rejected", 22, 6, "Remote", "", ""),
+]
+
+
+# (name, email, status, sent days ago, replied days ago)
+_OUTREACH = [
+    ("Maya Patel", "maya.patel@stripe.com", REPLIED, 12, 9),
+    ("Jordan Lee", "jordan@linear.app", REPLIED, 10, 8),
+    ("Priya Raman", "priya.raman@ramp.com", FOLLOW_UP_DUE, 9, None),
+    ("Tom Becker", "tom.becker@datadog.com", FOLLOW_UP_DUE, 8, None),
+    ("Ana Souza", "ana.souza@figma.com", FOLLOWED_UP, 16, None),
+    ("Chris Wong", "chris.wong@notion.so", NO_REPLY, 24, None),
+    ("Leah Kim", "leah.kim@vercel.com", WAITING, 3, None),
+    ("Sam Ortiz", "sam.ortiz@plaid.com", WAITING, 2, None),
+    ("Nina Shah", "nina.shah@airtable.com", WAITING, 1, None),
+    ("Omar Haddad", "omar.haddad@brex.com", REPLIED, 6, 2),
 ]
 
 
@@ -110,6 +126,19 @@ def seed(folder: str) -> None:
         {"Task": "Update resume with the Q3 launch", "Company": "",
          "Due": "", "Done": today.isoformat(), "Source": "you"},
     ]
+    outreach = []
+    for i, (name, address, status, sent, replied) in enumerate(_OUTREACH):
+        company = address.split("@")[1].split(".")[0].capitalize()
+        due = today - timedelta(days=sent - 7)
+        outreach.append({
+            "Sent on": (today - timedelta(days=sent)).isoformat(), "Name": name, "Email": address,
+            "Company": company, "Subject": f"MS CS @ ASU – Software / ML Engineer interested in {company}", "Status": status,
+            "Last reply": (today - timedelta(days=replied)).isoformat() if replied is not None else "",
+            "Follow up on": due.isoformat() if status in (WAITING, FOLLOW_UP_DUE) else "",
+            "Email link": f"https://mail.google.com/mail/u/0/#search/{address}",
+            "Thread ID": f"t{i}", "Message ID": f"o{i}", "Notes": "",
+        })
     CsvTable(os.path.join(folder, "applications.csv"), APP_COLUMNS).save(apps)
+    CsvTable(os.path.join(folder, "outreach.csv"), OUTREACH_COLUMNS).save(outreach)
     CsvTable(os.path.join(folder, "emails.csv"), EMAIL_COLUMNS).save(emails)
     CsvTable(os.path.join(folder, "todos.csv"), TODO_COLUMNS).save(todos)

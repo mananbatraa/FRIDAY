@@ -27,6 +27,8 @@ class Config:
     credentials_file: str
     token_file: str
     claude_model: str
+    outreach_query: str = ""  # empty: outreach tracking is off
+    follow_up_days: int = 7
 
     @classmethod
     def load(cls) -> "Config":
@@ -39,4 +41,6 @@ class Config:
             credentials_file=os.environ.get("GOOGLE_CREDENTIALS_FILE", "credentials.json"),
             token_file=os.environ.get("GOOGLE_TOKEN_FILE", "token.json"),
             claude_model=os.environ.get("CLAUDE_MODEL", "claude-opus-5-5"),
+            outreach_query=os.environ.get("OUTREACH_QUERY", "").strip(),
+            follow_up_days=int(os.environ.get("FOLLOW_UP_DAYS", "7")),
         )

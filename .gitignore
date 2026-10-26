@@ -4,6 +4,7 @@ token.json
 applications.csv
 emails.csv
 todos.csv
+outreach.csv
 .demo/
 __pycache__/
 .venv/

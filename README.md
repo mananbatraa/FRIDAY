@@ -29,6 +29,40 @@ Sheet it writes `applications.csv` and `emails.csv`.
    where they are. To also sort emails read on earlier runs, run once with
    `--sort-old`. FRIDAY never sends mail.
 
+## Outreach tracking (cold emails to recruiters and alumni)
+
+If you send cold emails yourself, for example with the Mailer
+(`send_recruiters.py`), FRIDAY can keep track of them. It never sends or
+drafts anything: it only reads what you already sent.
+
+1. Pick a Gmail search that finds exactly those emails in your Sent mail. The
+   subject line from your template usually does it. Try it in Gmail's search
+   box first, then put it in `.env`:
+   ```
+   OUTREACH_QUERY=in:sent newer_than:90d subject:"Software / ML Engineer interested in"
+   ```
+   That's the subject the Mailer uses ("MS CS @ ASU – Software / ML Engineer
+   interested in {company}"), and FRIDAY reads the company from the end of it.
+   Change the search if you change the template.
+2. Run FRIDAY as usual. Each run logs new matches in an **Outreach** tab (or
+   `outreach.csv`) and reads every email's thread again to set its status:
+   - **Waiting**: sent, no answer yet.
+   - **Follow-up due**: no answer after `FOLLOW_UP_DAYS` (default 7). Reply in
+     the same thread once; FRIDAY sees it and moves the row to **Followed up**.
+   - **No reply**: still nothing `FOLLOW_UP_DAYS` after your follow-up. Let it go.
+   - **Replied**: they wrote back, in the thread or in a new email from the same
+     address. Out-of-office replies don't count.
+   - **Bounced**: the address doesn't exist.
+
+   Scheduled runs notify you about new replies, bounces and follow-ups due.
+3. In the dashboard, the **Outreach** tab shows who to follow up with, your
+   reply rate, and the full list. You can fix names and companies, add notes,
+   and mark a row Replied by hand (for example after a LinkedIn reply); Replied
+   and Bounced rows are never changed by later runs.
+
+It uses the same Gmail access FRIDAY already has, so there's no new login. The
+Mailer needs no changes. Run with `--no-outreach` to skip it for one run.
+
 ## One-time setup (about 20 minutes)
 
 1. **Python 3.9+**, then:
@@ -92,8 +126,8 @@ Opens in your browser. The **Today** view is a calm overview:
 
 Use **Add application** for jobs you applied to outside email, the Remote /
 Hybrid / Onsite pills to filter, and the mail button to check email right away.
-Other tabs: an editable table of everything, each company's email history, and
-the full email log.
+Other tabs: an editable table of everything, your cold-email outreach (see
+above), each company's email history, and the full email log.
 
 Set `SEARCH_TITLE` in `.env` to change the heading. To try it with sample data
 (no Gmail needed): `streamlit run dashboard.py -- --demo`.
