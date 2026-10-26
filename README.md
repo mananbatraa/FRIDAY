@@ -39,10 +39,11 @@ drafts anything: it only reads what you already sent.
    subject line from your template usually does it. Try it in Gmail's search
    box first, then put it in `.env`:
    ```
-   OUTREACH_QUERY=in:sent newer_than:90d subject:"Seeking your guidance"
+   OUTREACH_QUERY=in:sent newer_than:90d subject:"Software / ML Engineer interested in"
    ```
-   If your subjects vary, have the Mailer add a Gmail label (say `Outreach`) to
-   each email it sends and use `OUTREACH_QUERY=in:sent label:Outreach`.
+   That's the subject the Mailer uses ("MS CS @ ASU – Software / ML Engineer
+   interested in {company}"), and FRIDAY reads the company from the end of it.
+   Change the search if you change the template.
 2. Run FRIDAY as usual. Each run logs new matches in an **Outreach** tab (or
    `outreach.csv`) and reads every email's thread again to set its status:
    - **Waiting**: sent, no answer yet.

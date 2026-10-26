@@ -53,6 +53,14 @@ class PersonTest(unittest.TestCase):
         self.assertEqual(person("Sam <sam123@gmail.com>"), ("Sam", "sam123@gmail.com", ""))
 
 
+class NewRowTest(unittest.TestCase):
+    def test_company_from_mailer_subject(self):
+        m = msg("m9", "2026-10-26", sent=True, to="careers@jpmchase.com",
+                subject="MS CS @ ASU – Software / ML Engineer interested in JPMorgan Chase")
+        row = outreach.new_row(m)
+        self.assertEqual((row["Company"], row["Email"]), ("JPMorgan Chase", "careers@jpmchase.com"))
+
+
 class FakeGmail:
     def __init__(self, threads, sent):
         self.threads, self.sent = threads, sent

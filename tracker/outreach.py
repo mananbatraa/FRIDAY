@@ -1,7 +1,7 @@
 """Track the cold emails you send to recruiters and alumni (for example with the Mailer).
 
 FRIDAY never sends anything. It finds the emails you already sent with a Gmail
-search (OUTREACH_QUERY in .env, e.g. `in:sent subject:"Seeking guidance"`),
+search (OUTREACH_QUERY in .env, e.g. `in:sent subject:"Software / ML Engineer interested in"`),
 logs one row per email in the Outreach table, and on every later run reads
 each email's Gmail thread to see what happened:
 
@@ -56,8 +56,15 @@ def person(to_header: str) -> tuple[str, str, str]:
     return name.strip().strip('"'), address, company
 
 
+# The Mailer's subjects end with the company: "... Software / ML Engineer interested in Stripe".
+_SUBJECT_COMPANY = re.compile(r"\binterested in (?:joining |working at )?(.+?)\s*$", re.IGNORECASE)
+
+
 def new_row(message: dict) -> dict:
     name, address, company = person(message["to"])
+    named = _SUBJECT_COMPANY.search(message["subject"])
+    if named:
+        company = named.group(1).strip(" .!")
     return {
         "Sent on": message["date"], "Name": name, "Email": address, "Company": company,
         "Subject": message["subject"], "Status": WAITING, "Last reply": "", "Follow up on": "",

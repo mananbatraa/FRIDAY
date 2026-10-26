@@ -734,7 +734,7 @@ with all_apps:
 with outreach_tab:
     if outreach.empty:
         st.info("No outreach emails yet. Set OUTREACH_QUERY in .env to a Gmail search that finds the emails your "
-                'Mailer sends, for example `in:sent newer_than:60d subject:"Seeking guidance"`, then press the mail '
+                'Mailer sends, for example `in:sent newer_than:60d subject:"Software / ML Engineer interested in"`, then press the mail '
                 "button. FRIDAY logs them here and flags replies and follow-ups. It never sends anything.")
     else:
         sent_n = len(outreach)

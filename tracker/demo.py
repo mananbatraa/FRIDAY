@@ -132,7 +132,7 @@ def seed(folder: str) -> None:
         due = today - timedelta(days=sent - 7)
         outreach.append({
             "Sent on": (today - timedelta(days=sent)).isoformat(), "Name": name, "Email": address,
-            "Company": company, "Subject": "Seeking your guidance", "Status": status,
+            "Company": company, "Subject": f"MS CS @ ASU – Software / ML Engineer interested in {company}", "Status": status,
             "Last reply": (today - timedelta(days=replied)).isoformat() if replied is not None else "",
             "Follow up on": due.isoformat() if status in (WAITING, FOLLOW_UP_DUE) else "",
             "Email link": f"https://mail.google.com/mail/u/0/#search/{address}",
