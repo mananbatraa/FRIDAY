@@ -101,5 +101,31 @@ class DoneTest(unittest.TestCase):
             self.assertNotIn(items[1].key, deadlines.load_done())
 
 
+class CalendarRulesTest(unittest.TestCase):
+    def test_time_zone_tag(self):
+        ics = ("BEGIN:VEVENT\nDTSTART;TZID=America/Chicago:20261102T103000\nSUMMARY:Recruiter call\nEND:VEVENT\n")
+        with mock.patch.dict(os.environ, {"TZ": "America/Phoenix"}):
+            import time
+            time.tzset()
+            try:
+                (when, title, _), = deadlines.parse_events(ics, datetime(2026, 11, 1))
+            finally:
+                os.environ.pop("TZ", None)
+                time.tzset()
+        self.assertEqual((title, when), ("Recruiter call", datetime(2026, 11, 2, 9, 30)))  # 10:30 Chicago = 9:30 Phoenix
+
+    def test_weekly_repeat(self):
+        ics = ("BEGIN:VEVENT\nDTSTART:20261005T100000\nRRULE:FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20261111T235959Z\n"
+               "EXDATE:20261104T100000\nSUMMARY:Team sync\nEND:VEVENT\n")
+        starts = [w for w, _, _ in deadlines.parse_events(ics, datetime(2026, 11, 1))]
+        # From a day before Nov 1: Mon Nov 2, (Wed Nov 4 skipped), Mon Nov 9, Wed Nov 11; then the rule ends.
+        self.assertEqual(starts, [datetime(2026, 11, 2, 10), datetime(2026, 11, 9, 10), datetime(2026, 11, 11, 10)])
+
+    def test_finished_repeat(self):
+        ics = ("BEGIN:VEVENT\nDTSTART;TZID=America/Chicago:20260622T103000\n"
+               "RRULE:FREQ=WEEKLY;UNTIL=20260623T153000Z;BYDAY=MO\nSUMMARY:Genpact daily connect\nEND:VEVENT\n")
+        self.assertEqual(deadlines.parse_events(ics, datetime(2026, 11, 1)), [])
+
+
 if __name__ == "__main__":
     unittest.main()

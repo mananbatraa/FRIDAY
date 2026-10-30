@@ -24,6 +24,7 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from .daily import _COURSE, _NOT_WORK, _ics_when, _unfold
 
@@ -57,21 +58,68 @@ class Item:
 # ---------------------------------------------------------------- sources
 
 
-def parse_events(ics: str) -> list[tuple[datetime, str, bool]]:
-    """(start, title, all-day) for every event in an iCalendar feed."""
+_DAYS = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
+REPEAT_AHEAD = timedelta(days=21)  # how far ahead repeating events are filled in
+
+
+def _start(value: str, tzid: str) -> datetime | None:
+    """An event start in this Mac's local time, honouring TZID=America/Chicago-style tags."""
+    when = _ics_when(value)
+    if when and tzid and len(value.strip()) > 8 and not value.strip().endswith("Z"):
+        try:
+            when = when.replace(tzinfo=ZoneInfo(tzid)).astimezone().replace(tzinfo=None)
+        except (KeyError, ValueError):
+            pass
+    return when
+
+
+def _repeats(first: datetime, rule: str, skip: set, now: datetime) -> list[datetime]:
+    """Occurrences of a DAILY or WEEKLY repeating event from a day ago to REPEAT_AHEAD ahead."""
+    parts = dict(p.split("=", 1) for p in rule.split(";") if "=" in p)
+    freq, step = parts.get("FREQ"), int(parts.get("INTERVAL", "1") or 1)
+    if freq not in ("DAILY", "WEEKLY"):
+        return [first]  # monthly/yearly: just the first one
+    until = _ics_when(parts["UNTIL"]) if parts.get("UNTIL") else None
+    count = int(parts["COUNT"]) if parts.get("COUNT") else None
+    days = {_DAYS[d[-2:]] for d in parts.get("BYDAY", "").split(",") if d[-2:] in _DAYS} or {first.weekday()}
+    out, n, day = [], 0, first
+    end = now + REPEAT_AHEAD
+    while day <= end and (until is None or day <= until) and (count is None or n < count):
+        weeks = (day.date() - first.date()).days // 7
+        if freq == "DAILY" or (day.weekday() in days and weeks % step == 0):
+            if freq == "DAILY" and (day.date() - first.date()).days % step:
+                day += timedelta(days=1)
+                continue
+            n += 1
+            if day >= now - timedelta(days=1) and day not in skip:
+                out.append(day)
+        day += timedelta(days=1)
+    return out
+
+
+def parse_events(ics: str, now: datetime | None = None) -> list[tuple[datetime, str, bool]]:
+    """(start, title, all-day) for every event in an iCalendar feed, repeating ones filled in."""
+    now = now or datetime.now()
     events, current = [], None
     for line in _unfold(ics):
         if line == "BEGIN:VEVENT":
             current = {}
         elif line == "END:VEVENT" and current is not None:
             start = current.get("DTSTART", "")
-            when = _ics_when(start)
+            when = _start(start, current.get("DTSTART_TZID", ""))
             if when and current.get("SUMMARY") and current.get("STATUS", "").upper() != "CANCELLED":
-                events.append((when, current["SUMMARY"], len(start.strip()) == 8))
+                all_day = len(start.strip()) == 8
+                skip = {_start(x, current.get("EXDATE_TZID", "")) for x in current.get("EXDATE", "").split(",") if x}
+                starts = _repeats(when, current["RRULE"], skip, now) if current.get("RRULE") else [when]
+                events += [(w, current["SUMMARY"], all_day) for w in starts]
             current = None
         elif current is not None and ":" in line:
             key, value = line.split(":", 1)
-            current[key.split(";")[0]] = value.replace("\\,", ",").replace("\\;", ";").replace("\\n", " ")
+            name, *params = key.split(";")
+            for param in params:
+                if param.startswith("TZID="):
+                    current[f"{name}_TZID"] = param[5:]
+            current[name] = value.replace("\\,", ",").replace("\\;", ";").replace("\\n", " ")
     return events
 
 
