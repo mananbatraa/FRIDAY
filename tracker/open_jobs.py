@@ -1,0 +1,210 @@
+"""Open new-grad Software Engineering job postings in browser tabs, a batch at a time.
+
+Reads the SimplifyJobs New-Grad-Positions list, skips closed roles and any
+link you've already opened (kept in opened_jobs.csv), and opens the apply
+links so Tsenta AI can apply on each tab.
+
+    python -m tracker.open_jobs                 # 10 tabs per batch, default browser
+    python -m tracker.open_jobs --batch 15 --browser "Google Chrome"
+    python -m tracker.open_jobs --list          # just show what would open
+"""
+
+import argparse
+import csv
+import html
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.request
+import webbrowser
+from dataclasses import dataclass
+from datetime import datetime
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+README_URL = "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md"
+SECTION = "Software Engineering New Grad Roles"
+LOG_FILE = "opened_jobs.csv"
+LOG_FIELDS = ["Opened", "Company", "Role", "Location", "Age", "URL"]
+
+NO_SPONSOR = "\U0001f6c2"  # 🛂
+US_CITIZEN = "\U0001f1fa\U0001f1f8"  # 🇺🇸
+CLOSED = "\U0001f512"  # 🔒
+TRACKING_PARAMS = {"utm_source", "utm_medium", "utm_campaign", "ref", "gh_src"}
+
+
+@dataclass
+class Job:
+    company: str
+    role: str
+    location: str
+    url: str
+    age: str
+
+    @property
+    def age_days(self):
+        m = re.match(r"(\d+)\s*(d|mo)", self.age)
+        if not m:
+            return 0
+        return int(m.group(1)) * (30 if m.group(2) == "mo" else 1)
+
+    @property
+    def flags(self):
+        return self.company + " " + self.role
+
+
+def fetch_readme(url=README_URL):
+    with urllib.request.urlopen(url, timeout=30) as resp:
+        return resp.read().decode("utf-8")
+
+
+def _text(cell):
+    cell = re.sub(r"<summary>.*?</summary>", "", cell, flags=re.S)
+    cell = re.sub(r"</?br\s*/?>", " / ", cell)
+    return html.unescape(re.sub(r"<[^>]+>", "", cell)).strip(" /")
+
+
+def parse_jobs(readme, section=SECTION):
+    """Active roles in one section of the README, newest first, closed ones left out."""
+    start = readme.find(section)
+    if start < 0:
+        raise ValueError(f"Couldn't find the '{section}' section in the README")
+    end = readme.find("\n## ", start)
+    body = readme[start:end if end > 0 else None]
+    # The first table is the active roles; the inactive ones sit in a <details> after it.
+    m = re.search(r"<tbody>(.*?)</tbody>", body, re.S)
+    if not m:
+        return []
+    jobs, company = [], ""
+    for row in re.findall(r"<tr>(.*?)</tr>", m.group(1), re.S):
+        cells = re.findall(r"<td>(.*?)</td>", row, re.S)
+        if len(cells) < 5:
+            continue
+        name = _text(cells[0])
+        if name and name != "↳":
+            company = name
+        if CLOSED in cells[3]:
+            continue
+        link = re.search(r'<a href="([^"]+)"[^>]*>\s*<img[^>]*alt="Apply"', cells[3])
+        if not link:
+            continue
+        jobs.append(Job(company, _text(cells[1]), _text(cells[2]), html.unescape(link.group(1)), _text(cells[4])))
+    return jobs
+
+
+def normalize(url):
+    """The same posting with tracking params stripped, so re-tagged links still match the log."""
+    parts = urlsplit(url.strip())
+    query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k.lower() not in TRACKING_PARAMS]
+    return urlunsplit((parts.scheme, parts.netloc.lower(), parts.path.rstrip("/"), urlencode(query), ""))
+
+
+def load_opened(path):
+    if not os.path.exists(path):
+        return set()
+    with open(path, newline="", encoding="utf-8") as f:
+        return {normalize(row["URL"]) for row in csv.DictReader(f) if row.get("URL")}
+
+
+def log_opened(path, jobs):
+    new_file = not os.path.exists(path)
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    with open(path, "a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=LOG_FIELDS)
+        if new_file:
+            writer.writeheader()
+        for job in jobs:
+            writer.writerow({"Opened": stamp, "Company": job.company, "Role": job.role,
+                             "Location": job.location, "Age": job.age, "URL": job.url})
+
+
+def select(jobs, opened=(), max_age=None, locations=(), skip_no_sponsor=False, skip_citizen=False):
+    picked, seen = [], set(opened)
+    for job in jobs:
+        key = normalize(job.url)
+        if key in seen:
+            continue
+        if max_age is not None and job.age_days > max_age:
+            continue
+        if locations and not any(loc.lower() in job.location.lower() for loc in locations):
+            continue
+        if skip_no_sponsor and NO_SPONSOR in job.flags:
+            continue
+        if skip_citizen and US_CITIZEN in job.flags:
+            continue
+        seen.add(key)
+        picked.append(job)
+    return picked
+
+
+def open_tab(url, browser=None):
+    if sys.platform == "darwin":
+        cmd = ["open", "-a", browser, url] if browser else ["open", url]
+        subprocess.run(cmd, check=False)
+    else:
+        webbrowser.open_new_tab(url)
+
+
+def describe(job):
+    return f"{job.company} | {job.role} | {job.location} | {job.age}"
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--batch", type=int, default=10, help="tabs to open at a time (default 10)")
+    p.add_argument("--browser", help='Mac app to open tabs in, e.g. "Google Chrome" (default: your default browser)')
+    p.add_argument("--max-age", type=int, metavar="DAYS", help="only roles posted in the last DAYS days")
+    p.add_argument("--location", action="append", default=[], metavar="TEXT",
+                   help="only roles whose location contains TEXT (repeat for several, e.g. --location Remote --location AZ)")
+    p.add_argument("--skip-no-sponsor", action="store_true", help="skip roles marked as not offering sponsorship")
+    p.add_argument("--skip-citizen", action="store_true", help="skip roles that require U.S. citizenship")
+    p.add_argument("--list", action="store_true", help="show what would open, without opening or logging anything")
+    p.add_argument("--mark-seen", action="store_true", help="log every matching role as opened without opening it")
+    p.add_argument("--no-prompt", action="store_true", help="open every batch without waiting for Enter")
+    p.add_argument("--readme", help="read the list from a local file instead of GitHub")
+    p.add_argument("--log", default=LOG_FILE, help=f"where to keep the opened-links log (default {LOG_FILE})")
+    args = p.parse_args(argv)
+
+    if args.readme:
+        with open(args.readme, encoding="utf-8") as f:
+            readme = f.read()
+    else:
+        print("Fetching the latest list from GitHub...")
+        readme = fetch_readme()
+    jobs = select(parse_jobs(readme), load_opened(args.log), args.max_age, args.location,
+                  args.skip_no_sponsor, args.skip_citizen)
+    print(f"{len(jobs)} new open role(s) to go through.")
+    if not jobs:
+        return 0
+
+    if args.list:
+        for job in jobs:
+            print(f"  {describe(job)}\n    {job.url}")
+        return 0
+    if args.mark_seen:
+        log_opened(args.log, jobs)
+        print(f"Logged {len(jobs)} role(s) in {args.log}; they won't open next time.")
+        return 0
+
+    batch = max(1, args.batch)
+    for i in range(0, len(jobs), batch):
+        chunk = jobs[i:i + batch]
+        print(f"\nOpening {i + 1}-{i + len(chunk)} of {len(jobs)}:")
+        for job in chunk:
+            print(f"  {describe(job)}")
+            open_tab(job.url, args.browser)
+            time.sleep(0.4)
+        log_opened(args.log, chunk)
+        if i + batch >= len(jobs):
+            break
+        if not args.no_prompt:
+            answer = input("\nPress Enter once Tsenta is done with these to open the next batch (q to stop): ")
+            if answer.strip().lower().startswith("q"):
+                break
+    print(f"\nDone. Opened links are logged in {args.log}.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
