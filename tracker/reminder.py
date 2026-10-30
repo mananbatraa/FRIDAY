@@ -165,7 +165,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     from .google_auth import LoginNeeded
-    from .notify import notify
+    from .notify import notify, send_ntfy
 
     try:
         apps, todos, outreach_rows = load_rows()
@@ -185,10 +185,14 @@ def main(argv=None) -> int:
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     phone = os.environ.get("REMINDER_PHONE", "").strip()
+    topic = os.environ.get("NTFY_TOPIC", "").strip()
     try:
         if whatsapp and apikey:
             send_whatsapp(whatsapp, apikey, text)
             where = f"WhatsApp {whatsapp}"
+        elif topic:  # a real phone alert, unlike an iMessage to your own number
+            send_ntfy(topic, "FRIDAY: what's pending", text)
+            where = "ntfy"
         elif token and chat_id:
             send_telegram(token, chat_id, text)
             where = "Telegram"
