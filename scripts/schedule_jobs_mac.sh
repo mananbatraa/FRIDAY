@@ -35,6 +35,8 @@ cat > "$PLIST" <<PLIST
     <string>--skip-no-sponsor</string>
     <string>--skip-citizen</string>
     <string>--us-only</string>
+    <string>--section</string><string>swe</string>
+    <string>--section</string><string>ai</string>
   </array>
   <key>StartInterval</key><integer>10800</integer>
   <key>RunAtLoad</key><true/>

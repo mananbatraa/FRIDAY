@@ -148,5 +148,15 @@ class MainTest(unittest.TestCase):
             self.assertEqual(len(load_opened(log)), 3)
 
 
+class SectionTest(unittest.TestCase):
+    def test_reads_the_ai_section(self):
+        from tracker.open_jobs import SECTIONS
+        row = ('<tr><td><strong><a href="https://x.com">Acme</a></strong></td><td>ML Engineer</td><td>NYC</td>'
+               '<td><a href="https://acme.com/ml"><img alt="Apply"></a></td><td>2d</td></tr>')
+        readme = (f"## 💻 {SECTIONS['swe']}\n<table><tbody></tbody></table>\n"
+                  f"## 🤖 {SECTIONS['ai']}\n<table><tbody>{row}</tbody></table>\n## 📈 Quant\n")
+        self.assertEqual([j.role for j in parse_jobs(readme, SECTIONS["ai"])], ["ML Engineer"])
+
+
 if __name__ == "__main__":
     unittest.main()

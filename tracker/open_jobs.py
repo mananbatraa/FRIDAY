@@ -27,6 +27,14 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 README_URL = "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md"
 SECTION = "Software Engineering New Grad Roles"
+# Short names for --section.
+SECTIONS = {
+    "swe": SECTION,
+    "ai": "Data Science, AI & Machine Learning New Grad Roles",
+    "pm": "Product Management New Grad Roles",
+    "quant": "Quantitative Finance New Grad Roles",
+    "hardware": "Hardware Engineering New Grad Roles",
+}
 LOG_FILE = "opened_jobs.csv"
 LOG_FIELDS = ["Opened", "Company", "Role", "Location", "Age", "URL"]
 
@@ -228,6 +236,9 @@ def main(argv=None):
                    help="open the next batch after SECONDS instead of waiting for Enter")
     p.add_argument("--close", action="store_true",
                    help="close each batch's tabs before opening the next (Mac, with --browser set to Chrome, Brave or Edge)")
+    p.add_argument("--section", action="append", choices=sorted(SECTIONS), metavar="NAME",
+                   help="which part of the list to read: " + ", ".join(sorted(SECTIONS)) +
+                        " (repeat for several; default swe)")
     p.add_argument("--readme", help="read the list from a local file instead of GitHub")
     p.add_argument("--log", default=LOG_FILE, help=f"where to keep the opened-links log (default {LOG_FILE})")
     args = p.parse_args(argv)
@@ -238,7 +249,8 @@ def main(argv=None):
     else:
         print("Fetching the latest list from GitHub...")
         readme = fetch_readme()
-    jobs = select(parse_jobs(readme), load_opened(args.log), args.max_age, args.location,
+    listed = [job for name in (args.section or ["swe"]) for job in parse_jobs(readme, SECTIONS[name])]
+    jobs = select(listed, load_opened(args.log), args.max_age, args.location,
                   args.skip_no_sponsor, args.skip_citizen, args.us_only)
     print(f"{len(jobs)} new open role(s) to go through.")
     if not jobs:
