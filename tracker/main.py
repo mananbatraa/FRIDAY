@@ -11,6 +11,7 @@ checks them for replies (see tracker/outreach.py).
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import warnings
 from collections import Counter
@@ -145,9 +146,10 @@ def main(argv=None) -> int:
             print(f"  (and {len(sent) - 10} more sent emails)")
         changes += news
 
-    if args.background and changes:
-        notify(f"FRIDAY: {len(changes)} update{'s' if len(changes) != 1 else ''}",
-               "; ".join(c[2:] for c in changes[:3]) + (" …" if len(changes) > 3 else ""))
+    if args.background:
+        alert = phone_alert(changes)
+        if alert:
+            notify(*alert)
 
     # Each email is sorted in the mailbox it came from (rows saved before this had no Account: the main one).
     to_sort = logged if args.sort_old else logged[first_new:]
@@ -175,6 +177,25 @@ def main(argv=None) -> int:
             print(f"{account.address}:")
         move_to_folders(account, folders, codes)
     return 0
+
+
+# Changes worth interrupting you for; new applications and rejections are only counted.
+_IMPORTANT = re.compile(r"\b(?:Interview|Assessment|Offer|Replied|Bounced|Follow-up due)$")
+
+
+def phone_alert(changes: list[str]) -> tuple[str, str] | None:
+    """(title, message) for an alert, or None when nothing needs you (e.g. only "thanks for applying" emails)."""
+    important = [c[2:] for c in changes if _IMPORTANT.search(c)]
+    if not important:
+        return None
+    applied = sum(c.endswith("| Applied") for c in changes)
+    rejected = sum(c.endswith("Rejected") for c in changes)
+    plural = lambda n, word: f"{n} {word}{'s' if n != 1 else ''}"  # noqa: E731
+    counts = ", ".join(x for x in (plural(applied, "new application") if applied else "",
+                                   plural(rejected, "rejection") if rejected else "") if x)
+    message = "; ".join(important[:4]) + (f" (+{len(important) - 4} more)" if len(important) > 4 else "")
+    return (f"FRIDAY: {len(important)} need{'s' if len(important) == 1 else ''} you",
+            message + (f". Also {counts}." if counts else ""))
 
 
 def old_codes(gmail, message_ids: list[str]) -> list[str]:
