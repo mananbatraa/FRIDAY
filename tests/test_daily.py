@@ -5,7 +5,7 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-from tracker.daily import canvas_tasks, needs_reply, stock_actions
+from tracker.daily import canvas_tasks, needs_reply, stock_summary
 
 NOW = datetime(2026, 10, 30, 9, 0)
 
@@ -72,22 +72,37 @@ class NeedsReplyTest(unittest.TestCase):
 
 
 class StockTest(unittest.TestCase):
-    def test_todays_actions_only(self):
+    def write(self, folder, name, state, account=None):
+        (Path(folder) / "paper").mkdir(exist_ok=True)
+        (Path(folder) / "paper" / f"{name}.json").write_text(json.dumps({"capital": 3500000, **state}))
+        if account is not None:
+            (Path(folder) / "paper" / f"account_{name}.json").write_text(json.dumps(account))
+
+    def test_summary_with_trades(self):
         with tempfile.TemporaryDirectory() as folder:
-            (Path(folder) / "paper").mkdir()
-            (Path(folder) / "paper" / "momentum.json").write_text(json.dumps({
-                "log": [["2026-10-30 08:30", "SELL Illumina (ILMN) at about $233.80: down 14%."],
-                        ["2026-10-30 11:06", "SELL Later Co, after the report"],
+            self.write(folder, "momentum", {
+                "history": [["2026-10-30 08:58", 3587500, 0.013, -0.012], ["2026-10-30 13:28", 1, 0, 0]],
+                "log": [["2026-10-30 08:30", "SELL Illumina, Inc. (ILMN) at about $233.80: down 14%."],
                         ["2026-10-30 07:13", "FYI Sandisk (SNDK) is -9% today. No action."],
-                        ["2026-10-29 10:00", "BUY Old Co yesterday"]],
-                "pending": [{"side": "buy", "ticker": "DIXON.NS", "info": {"name": "Dixon"}}]}))
-            (Path(folder) / "paper" / "account_momentum.json").write_text("{}")
-            self.assertEqual(stock_actions(folder, NOW), [
-                "Momentum: SELL Illumina (ILMN) at about $233.80: down 14%.",
-                "Momentum: BUY Dixon at the next open"])
+                        ["2026-10-30 11:06", "SELL Later Co, after the report"],
+                        ["2026-10-28 10:00", "BUY Old Co, more than a day ago"]],
+                "pending": [{"side": "buy", "ticker": "DIXON.NS", "info": {"name": "Dixon"}}]},
+                account={"notes": ["2026-10-30 08:31 SELL 3 × Illumina at ₹19,400.00 (stop-loss)",
+                                   "2026-10-27 09:15 BUY 2 × Old at ₹1.00 (bought)"]})
+            self.assertEqual(stock_summary(folder, NOW), [
+                "Momentum ₹35.88 L (+2.5%) · Nifty 50 +1.3% · S&P 500 −1.2% since 26 Oct",
+                "Last 24h: Momentum: SELL Illumina, Inc. (ILMN)",
+                "₹1L Momentum: SELL 3 × Illumina at ₹19,400.00 (stop-loss)",
+                "Update your GTT stop orders for the ₹1L accounts (see the stock dashboard)",
+                "At the next open: Momentum: BUY Dixon"])
+
+    def test_quiet_day(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.write(folder, "multifactor", {"history": [["2026-10-30 08:00", 3465000, 0.01, -0.01]], "log": []})
+            self.assertEqual(stock_summary(folder, NOW)[-1], "No trades. The rules say hold.")
 
     def test_not_set_up(self):
-        self.assertEqual(stock_actions("", NOW), [])
+        self.assertEqual(stock_summary("", NOW), [])
 
 
 if __name__ == "__main__":

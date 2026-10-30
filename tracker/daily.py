@@ -149,28 +149,60 @@ def emails_to_answer(gmails, today: date) -> list[str]:
 
 # ---------------------------------------------------------------- stock app
 
-_ACTION = re.compile(r"^(?:BUY|SELL|TRIM|SELL HALF|TOP UP)\b|\bGTT\b", re.IGNORECASE)
+_ACTION = re.compile(r"^(?:BUY|SELL|TRIM|SELL HALF|TOP UP)\b", re.IGNORECASE)
+_STRATEGIES = {"momentum": "Momentum", "multifactor": "Multi-factor"}
 
 
-def stock_actions(folder: str, now: datetime) -> list[str]:
-    """Today's buy/sell alerts and queued orders from the stock app's paper portfolios ("FYI" lines left out)."""
+def _lakh(value: float) -> str:
+    return f"₹{value / 1e5:,.2f} L"
+
+
+def _pct(x: float) -> str:
+    return f"{'+' if x >= 0 else '−'}{abs(x) * 100:.1f}%"
+
+
+def _short(text: str) -> str:
+    """'SELL Illumina, Inc. (ILMN) at about $233.80: down -14%...' -> 'SELL Illumina, Inc. (ILMN)'."""
+    text = re.split(r"\s+at (?:about|the open)|:", text, maxsplit=1)[0].strip()
+    return text[:70]
+
+
+def stock_summary(folder: str, now: datetime) -> list[str]:
+    """How the stock app's portfolios are doing, its trades in the last 24 hours, and what's queued."""
     if not folder:
         return []
-    out = []
-    for path in sorted(Path(folder).glob("paper/*.json")):
-        if path.stem.startswith("account_"):
-            continue
+    since = f"{now - timedelta(hours=24):%Y-%m-%d %H:%M}"
+    upto = f"{now:%Y-%m-%d %H:%M}"
+    scores, trades, accounts, queued, bench = [], [], [], [], None
+    for name, label in _STRATEGIES.items():
         try:
-            state = json.loads(path.read_text())
+            state = json.loads((Path(folder) / "paper" / f"{name}.json").read_text())
         except (OSError, ValueError):
             continue
-        label = path.stem.replace("multifactor", "Multi-factor").replace("momentum", "Momentum")
-        for when, text in state.get("log", []):
-            if f"{now:%Y-%m-%d}" <= str(when)[:16] <= f"{now:%Y-%m-%d %H:%M}" and _ACTION.search(text):
-                out.append(f"{label}: {text.split(':')[0] if len(text) > 110 else text}")
-        for order in state.get("pending", []):
-            name = order.get("info", {}).get("name") or order.get("ticker", "")
-            out.append(f"{label}: {order.get('side', '').upper()} {name} at the next open")
+        history = [h for h in state.get("history", []) if str(h[0])[:16] <= upto]
+        if history:
+            _, value, nifty, sp = history[-1][:4]
+            scores.append(f"{label} {_lakh(value)} ({_pct(value / state['capital'] - 1)})")
+            bench = f"Nifty 50 {_pct(nifty)} · S&P 500 {_pct(sp)}"
+        trades += [f"{label}: {_short(text)}" for when, text in state.get("log", [])
+                   if since <= str(when)[:16] <= upto and _ACTION.search(text)]
+        queued += [f"{label}: {o.get('side', '').upper()} {o.get('info', {}).get('name') or o.get('ticker', '')}"
+                   for o in state.get("pending", [])]
+        try:
+            account = json.loads((Path(folder) / "paper" / f"account_{name}.json").read_text())
+        except (OSError, ValueError):
+            account = {}
+        accounts += [f"₹1L {label}: {note[17:]}" for note in account.get("notes", [])
+                     if since <= note[:16] <= upto]
+    if not scores:
+        return []
+    out = [" · ".join(scores) + (f" · {bench}" if bench else "") + " since 26 Oct"]
+    out += [f"Last 24h: {t}" for t in trades]
+    if accounts:
+        out += accounts[:4] + ["Update your GTT stop orders for the ₹1L accounts (see the stock dashboard)"]
+    out += [f"At the next open: {q}" for q in queued]
+    if not (trades or accounts or queued):
+        out.append("No trades. The rules say hold.")
     return out
 
 
@@ -201,5 +233,5 @@ def extra_sections(now: datetime, apps: list[dict] = (), todos: list[dict] = ())
         sections.append(("Emails waiting on your reply", emails_to_answer(load_gmails(), now.date())))
     except Exception as e:  # noqa: BLE001 - a Gmail hiccup must not stop the reminder
         sections.append(("Emails waiting on your reply", [f"Couldn't check email: {type(e).__name__}"]))
-    sections.append(("Stock app", stock_actions(os.environ.get("STOCKS_DIR", "").strip(), now)))
+    sections.append(("Stock app", stock_summary(os.environ.get("STOCKS_DIR", "").strip(), now)))
     return sections
