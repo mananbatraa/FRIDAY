@@ -103,10 +103,11 @@ def pending(apps: list[dict], todos: list[dict], outreach_rows: list[dict], now:
                   for r in sorted(outreach_rows, key=lambda r: r.get("Sent on", ""))
                   if r.get("Status") == FOLLOW_UP_DUE]
 
-    sections = dict(extra)  # Canvas, emails to answer, stock app (see tracker/daily.py)
-    body = (_section("Interviews in the next 48 hours", [t for _, t in rounds])
+    sections = dict(extra)  # today, this week, emails to answer, stock app (see tracker/daily.py)
+    body = (_section("Today", sections.pop("Today", []))
+            + _section("Interviews in the next 48 hours", [t for _, t in rounds])
             + _section("To-dos", [t for _, t in tasks])
-            + _section("Canvas due this week", sections.pop("Canvas due this week", []))
+            + _section("Due this week", sections.pop("Due this week", []))
             + _section("Emails waiting on your reply", sections.pop("Emails waiting on your reply", []))
             + _section("Outreach follow-ups due", follow_ups))
     for title, lines in sections.items():
@@ -182,7 +183,7 @@ def main(argv=None) -> int:
     from .daily import extra_sections
 
     now = datetime.now()
-    text = pending(apps, todos, outreach_rows, now, extra_sections(now))
+    text = pending(apps, todos, outreach_rows, now, extra_sections(now, apps, todos))
     if args.print:
         print(text or "Nothing pending.")
         return 0

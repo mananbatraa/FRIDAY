@@ -189,9 +189,14 @@ def load_gmails():
     return gmails
 
 
-def extra_sections(now: datetime) -> list[tuple[str, list[str]]]:
+def extra_sections(now: datetime, apps: list[dict] = (), todos: list[dict] = ()) -> list[tuple[str, list[str]]]:
     """Every extra reminder section, in the order they're shown."""
-    sections = [("Canvas due this week", fetch_canvas(os.environ.get("CANVAS_ICS_URL", "").strip(), now))]
+    from .deadlines import collect, report_sections
+
+    items, problems = collect(list(apps), list(todos))
+    sections = report_sections(items, now)
+    if problems:
+        sections.append(("Couldn't check", problems))
     try:
         sections.append(("Emails waiting on your reply", emails_to_answer(load_gmails(), now.date())))
     except Exception as e:  # noqa: BLE001 - a Gmail hiccup must not stop the reminder

@@ -198,3 +198,16 @@ python -m unittest discover -s tests -t .
 
 `tests/test_job_emails.py` holds real subject lines and previews. When the
 rules get an email wrong, add it there and adjust `tracker/job_emails.py`.
+
+## Deadline alerts and the daily report
+
+`tracker/deadlines.py` gathers everything with a time on it: Canvas work (`CANVAS_ICS_URL`), your
+calendars (`CALENDAR_ICS_URLS`, comma-separated private iCal links, which is how scheduled calls get
+in), interview rounds and dated to-dos. The daily report starts with **Today** and **Due this week**
+from it, and `./scripts/alerts_mac.sh` checks every 5 minutes and pushes an alert 30 minutes before
+anything is due or starts. Mark something finished so it stops coming up:
+
+```bash
+python -m tracker.deadlines --list                    # the next 7 days
+python -m tracker.deadlines --done "smart contract"   # no more reminders for matching items
+```
