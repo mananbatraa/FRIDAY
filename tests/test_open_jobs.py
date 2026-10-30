@@ -77,6 +77,14 @@ class SelectTest(unittest.TestCase):
         self.assertEqual(len(select(self.jobs, skip_no_sponsor=True)), 3)
         self.assertEqual(len(select(self.jobs, skip_citizen=True)), 3)
 
+    def test_us_only(self):
+        from tracker.open_jobs import in_us
+        for place, want in [("London, UK", False), ("Vancouver, BC, Canada", False), ("SF", True),
+                            ("Indianapolis, IN / Dallas, TX", True), ("Toronto, ON / New York, NY", True),
+                            ("Remote", True), ("Bengaluru, India", False), ("Boston, MA", True)]:
+            with self.subTest(place=place):
+                self.assertEqual(in_us(place), want)
+
     def test_duplicate_links_open_once(self):
         self.assertEqual(len(select(self.jobs + self.jobs)), 4)
 

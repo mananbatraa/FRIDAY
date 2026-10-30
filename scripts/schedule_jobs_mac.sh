@@ -32,6 +32,9 @@ cat > "$PLIST" <<PLIST
     <string>--max-age</string><string>3</string>
     <string>--wait</string><string>120</string>
     <string>--close</string>
+    <string>--skip-no-sponsor</string>
+    <string>--skip-citizen</string>
+    <string>--us-only</string>
   </array>
   <key>StartInterval</key><integer>10800</integer>
   <key>RunAtLoad</key><true/>

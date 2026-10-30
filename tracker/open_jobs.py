@@ -123,7 +123,23 @@ def log_opened(path, jobs):
                              "Location": job.location, "Age": job.age, "URL": job.url})
 
 
-def select(jobs, opened=(), max_age=None, locations=(), skip_no_sponsor=False, skip_citizen=False):
+# Places outside the US, for --us-only. A role listed in several places is kept if any of them is in the US.
+_ABROAD = re.compile(
+    r"\b(?:UK|U\.K\.|United Kingdom|England|Scotland|London|Cambridge, UK|Canada|Toronto|Vancouver|Montreal|Ottawa|"
+    r"Waterloo, ON|Ontario|ON|BC|QC|AB|India|Bangalore|Bengaluru|Hyderabad|Pune|Mumbai|Delhi|Gurgaon|Gurugram|Noida|"
+    r"Chennai|Germany|Berlin|Munich|Ireland|Dublin|France|Paris|Netherlands|Amsterdam|Singapore|Japan|Tokyo|"
+    r"Australia|Sydney|Melbourne|Israel|Tel Aviv|Poland|Warsaw|Spain|Madrid|Barcelona|Mexico|Brazil|China|Taiwan|"
+    r"Korea|Seoul|Switzerland|Zurich|Sweden|Stockholm|Denmark|Copenhagen|Portugal|Lisbon|Romania|Czechia|Prague|"
+    r"Philippines|Vietnam|Hong Kong|UAE|Dubai)\b"
+)
+
+
+def in_us(location: str) -> bool:
+    places = [p for p in re.split(r"\s*(?:/|;|\||<br\s*/?>|\n)\s*", location) if p.strip()]
+    return not places or any(not _ABROAD.search(p) for p in places)
+
+
+def select(jobs, opened=(), max_age=None, locations=(), skip_no_sponsor=False, skip_citizen=False, us_only=False):
     picked, seen = [], set(opened)
     for job in jobs:
         key = normalize(job.url)
@@ -136,6 +152,8 @@ def select(jobs, opened=(), max_age=None, locations=(), skip_no_sponsor=False, s
         if skip_no_sponsor and NO_SPONSOR in job.flags:
             continue
         if skip_citizen and US_CITIZEN in job.flags:
+            continue
+        if us_only and not in_us(job.location):
             continue
         seen.add(key)
         picked.append(job)
@@ -202,6 +220,7 @@ def main(argv=None):
                    help="only roles whose location contains TEXT (repeat for several, e.g. --location Remote --location AZ)")
     p.add_argument("--skip-no-sponsor", action="store_true", help="skip roles marked as not offering sponsorship")
     p.add_argument("--skip-citizen", action="store_true", help="skip roles that require U.S. citizenship")
+    p.add_argument("--us-only", action="store_true", help="skip roles located only outside the US")
     p.add_argument("--list", action="store_true", help="show what would open, without opening or logging anything")
     p.add_argument("--mark-seen", action="store_true", help="log every matching role as opened without opening it")
     p.add_argument("--no-prompt", action="store_true", help="open every batch without waiting for Enter")
@@ -220,7 +239,7 @@ def main(argv=None):
         print("Fetching the latest list from GitHub...")
         readme = fetch_readme()
     jobs = select(parse_jobs(readme), load_opened(args.log), args.max_age, args.location,
-                  args.skip_no_sponsor, args.skip_citizen)
+                  args.skip_no_sponsor, args.skip_citizen, args.us_only)
     print(f"{len(jobs)} new open role(s) to go through.")
     if not jobs:
         return 0
