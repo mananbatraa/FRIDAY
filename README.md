@@ -104,6 +104,29 @@ are in `.gitignore`).
 - **Automatic checks:** run `./scripts/schedule_mac.sh` once. Your Mac then
   checks every 3 hours while it's awake and shows a notification when an
   application changes. Turn it off with `./scripts/schedule_mac.sh off`.
+- **Reminders of what's pending:** run `./scripts/remind_mac.sh` once for a
+  message every day at 9:00, or `./scripts/remind_mac.sh 9:00 12:00 16:00 19:00`
+  for several times a day (24-hour clock). Each one lists the interview rounds in
+  the next 48 hours, open to-dos (overdue ones flagged), each application's next
+  step, and outreach emails due a follow-up. If nothing is pending, no message.
+  Try it with `python -m tracker.reminder --print`; turn it off with
+  `./scripts/remind_mac.sh off`. Where it goes, set in `.env` (the first one
+  set up wins):
+  - **WhatsApp** (a normal phone notification), through the free
+    [CallMeBot](https://www.callmebot.com/blog/free-api-whatsapp-messages/)
+    service: save the CallMeBot number shown on that page as a contact, send it
+    "I allow callmebot to send me messages" on WhatsApp, and it replies with
+    your API key. Put your number in `WHATSAPP_PHONE` and the key in
+    `CALLMEBOT_APIKEY`. CallMeBot sees the text of each reminder.
+  - **Telegram** (a normal phone notification): in Telegram, message
+    @BotFather, send `/newbot` and follow the steps; put the token it gives you in
+    `TELEGRAM_BOT_TOKEN`. Send your new bot any message, open
+    `https://api.telegram.org/bot<token>/getUpdates` and put the number after
+    `"chat":{"id":` in `TELEGRAM_CHAT_ID`.
+  - **iMessage**: `REMINDER_PHONE=+14805551234`, sent through the Messages app
+    (the first one may ask you to let Terminal or Python control Messages). If
+    your Mac's iMessage uses that same number, it lands in your thread with
+    yourself, usually without an alert.
 - Google logs this app out about once a week while it's in "Testing" mode.
   When that happens you'll get a "FRIDAY needs you" notification; double-click
   `FRIDAY.command` and log in again.
