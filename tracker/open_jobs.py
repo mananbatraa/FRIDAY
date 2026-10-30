@@ -7,6 +7,8 @@ links so Tsenta AI can apply on each tab.
     python -m tracker.open_jobs                 # 10 tabs per batch, default browser
     python -m tracker.open_jobs --batch 15 --browser "Google Chrome"
     python -m tracker.open_jobs --list          # just show what would open
+    python -m tracker.open_jobs --browser "Google Chrome" --wait 120 --close
+                                                # every 2 minutes, close the tabs and open the next batch
 """
 
 import argparse
@@ -31,6 +33,8 @@ LOG_FIELDS = ["Opened", "Company", "Role", "Location", "Age", "URL"]
 NO_SPONSOR = "\U0001f6c2"  # 🛂
 US_CITIZEN = "\U0001f1fa\U0001f1f8"  # 🇺🇸
 CLOSED = "\U0001f512"  # 🔒
+# Browsers whose windows AppleScript can open and close, which --close needs.
+SCRIPTABLE_BROWSERS = {"Google Chrome", "Brave Browser", "Microsoft Edge", "Chromium"}
 TRACKING_PARAMS = {"utm_source", "utm_medium", "utm_campaign", "ref", "gh_src"}
 
 
@@ -146,6 +150,41 @@ def open_tab(url, browser=None):
         webbrowser.open_new_tab(url)
 
 
+def _osascript(script):
+    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, check=False)
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def _quote(text):
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def open_window(urls, browser):
+    """Open the urls as tabs in a new browser window and return the window's id (None if it failed)."""
+    lines = [f"tell application {_quote(browser)}", "set w to make new window",
+             f"set URL of active tab of w to {_quote(urls[0])}"]
+    lines += [f"tell w to make new tab with properties {{URL:{_quote(url)}}}" for url in urls[1:]]
+    lines += ["return id of w", "end tell"]
+    return _osascript("\n".join(lines))
+
+
+def close_window(window_id, browser):
+    _osascript(f"tell application {_quote(browser)} to close (every window whose id is {window_id})")
+
+
+def countdown(seconds, message):
+    """Wait, showing the time left. False if you pressed Ctrl+C to stop."""
+    try:
+        for left in range(seconds, 0, -1):
+            print(f"\r{message} in {left // 60}:{left % 60:02d} (Ctrl+C to stop) ", end="", flush=True)
+            time.sleep(1)
+        print()
+        return True
+    except KeyboardInterrupt:
+        print()
+        return False
+
+
 def describe(job):
     return f"{job.company} | {job.role} | {job.location} | {job.age}"
 
@@ -162,6 +201,10 @@ def main(argv=None):
     p.add_argument("--list", action="store_true", help="show what would open, without opening or logging anything")
     p.add_argument("--mark-seen", action="store_true", help="log every matching role as opened without opening it")
     p.add_argument("--no-prompt", action="store_true", help="open every batch without waiting for Enter")
+    p.add_argument("--wait", type=int, metavar="SECONDS",
+                   help="open the next batch after SECONDS instead of waiting for Enter")
+    p.add_argument("--close", action="store_true",
+                   help="close each batch's tabs before opening the next (Mac, with --browser set to Chrome, Brave or Edge)")
     p.add_argument("--readme", help="read the list from a local file instead of GitHub")
     p.add_argument("--log", default=LOG_FILE, help=f"where to keep the opened-links log (default {LOG_FILE})")
     args = p.parse_args(argv)
@@ -187,21 +230,44 @@ def main(argv=None):
         print(f"Logged {len(jobs)} role(s) in {args.log}; they won't open next time.")
         return 0
 
+    closing = args.close and sys.platform == "darwin" and args.browser in SCRIPTABLE_BROWSERS
+    if args.close and not closing:
+        print(f"--close only works on a Mac with --browser set to one of: {', '.join(sorted(SCRIPTABLE_BROWSERS))}. "
+              "Tabs will stay open.")
     batch = max(1, args.batch)
     for i in range(0, len(jobs), batch):
         chunk = jobs[i:i + batch]
+        last = i + batch >= len(jobs)
         print(f"\nOpening {i + 1}-{i + len(chunk)} of {len(jobs)}:")
         for job in chunk:
             print(f"  {describe(job)}")
-            open_tab(job.url, args.browser)
-            time.sleep(0.4)
+        window = open_window([job.url for job in chunk], args.browser) if closing else None
+        if closing and not window:
+            print("Couldn't control the browser (allow Terminal under System Settings > Privacy & Security > "
+                  "Automation). Opening tabs without closing them.")
+            closing = False
+        if not window:
+            for job in chunk:
+                open_tab(job.url, args.browser)
+                time.sleep(0.4)
         log_opened(args.log, chunk)
-        if i + batch >= len(jobs):
+        if last and not window:
             break
-        if not args.no_prompt:
-            answer = input("\nPress Enter once Tsenta is done with these to open the next batch (q to stop): ")
-            if answer.strip().lower().startswith("q"):
-                break
+        if args.wait:
+            keep_going = countdown(args.wait, "Closing these tabs" if last else
+                                   "Closing these tabs and opening the next batch" if window else "Next batch")
+        elif args.no_prompt:
+            keep_going = True
+        else:
+            prompt = "close these tabs" if last else "open the next batch"
+            answer = input(f"\nPress Enter once Tsenta is done with these to {prompt} (q to stop): ")
+            keep_going = not answer.strip().lower().startswith("q")
+        if not keep_going:
+            break
+        if window:
+            close_window(window, args.browser)
+        if last:
+            break
     print(f"\nDone. Opened links are logged in {args.log}.")
     return 0
 

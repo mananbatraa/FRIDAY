@@ -107,6 +107,38 @@ class MainTest(unittest.TestCase):
                 open_jobs.main(["--readme", readme, "--log", log])
                 tab.assert_not_called()
 
+    def test_closes_each_window_after_the_wait(self):
+        with tempfile.TemporaryDirectory() as d:
+            readme, log = os.path.join(d, "README.md"), os.path.join(d, "opened.csv")
+            with open(readme, "w", encoding="utf-8") as f:
+                f.write(README)
+            with mock.patch.object(open_jobs.sys, "platform", "darwin"), \
+                    mock.patch.object(open_jobs, "open_window", side_effect=["11", "12"]) as win, \
+                    mock.patch.object(open_jobs, "close_window") as close, \
+                    mock.patch.object(open_jobs, "countdown", return_value=True) as wait, \
+                    mock.patch.object(open_jobs, "open_tab") as tab, mock.patch("builtins.print"):
+                open_jobs.main(["--readme", readme, "--log", log, "--batch", "3", "--wait", "120", "--close",
+                                "--browser", "Google Chrome"])
+            self.assertEqual([len(c.args[0]) for c in win.call_args_list], [3, 1])
+            self.assertEqual([c.args for c in close.call_args_list], [("11", "Google Chrome"), ("12", "Google Chrome")])
+            self.assertEqual(wait.call_count, 2)
+            tab.assert_not_called()
+
+    def test_stopping_leaves_the_tabs_open(self):
+        with tempfile.TemporaryDirectory() as d:
+            readme, log = os.path.join(d, "README.md"), os.path.join(d, "opened.csv")
+            with open(readme, "w", encoding="utf-8") as f:
+                f.write(README)
+            with mock.patch.object(open_jobs.sys, "platform", "darwin"), \
+                    mock.patch.object(open_jobs, "open_window", return_value="11") as win, \
+                    mock.patch.object(open_jobs, "close_window") as close, \
+                    mock.patch.object(open_jobs, "countdown", return_value=False), mock.patch("builtins.print"):
+                open_jobs.main(["--readme", readme, "--log", log, "--batch", "3", "--wait", "120", "--close",
+                                "--browser", "Google Chrome"])
+            self.assertEqual(win.call_count, 1)
+            close.assert_not_called()
+            self.assertEqual(len(load_opened(log)), 3)
+
 
 if __name__ == "__main__":
     unittest.main()
