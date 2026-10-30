@@ -149,7 +149,19 @@ python3 -m tracker.open_jobs --batch 15 --browser "Google Chrome"
 python3 -m tracker.open_jobs --max-age 14 --location Remote --location AZ
 python3 -m tracker.open_jobs --skip-no-sponsor --skip-citizen
 python3 -m tracker.open_jobs --mark-seen          # log everything current as seen, open nothing
+python3 -m tracker.open_jobs --browser "Google Chrome" --wait 120 --close
+                                                  # every 2 minutes, close the tabs and open the next 10
 ```
+
+With `--close`, each batch opens in its own Chrome window, which is closed
+before the next batch opens. The first time, macOS asks whether Terminal may
+control Chrome: click OK. Press Ctrl+C during the countdown to stop and leave
+the current tabs open.
+
+**Automatic:** run `./scripts/schedule_jobs_mac.sh` once. Your Mac then opens
+new postings on its own every 3 hours while it's awake (Chrome, 10 at a time,
+2 minutes per batch, last 3 days). Turn it off with
+`./scripts/schedule_jobs_mac.sh off`. Log: `logs/open_jobs.log`.
 
 It needs no setup beyond Python 3. Change the double-click defaults by
 editing the `OPTIONS=` line at the top of `OpenJobs.command`.
