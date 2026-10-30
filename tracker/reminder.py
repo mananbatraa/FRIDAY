@@ -1,12 +1,17 @@
 """Text yourself a list of what's pending: interview rounds, to-dos, next steps and outreach follow-ups.
 
-    python -m tracker.reminder            # send the reminder as an iMessage to REMINDER_PHONE
+    python -m tracker.reminder            # send the reminder
     python -m tracker.reminder --print    # just print it
 
-It reads the same tables as the dashboard and changes nothing. The text goes
-out through the Messages app on your Mac, so it's free and needs no account
-beyond the Apple ID you're already signed in with. Nothing pending, no text.
-Run ./scripts/remind_mac.sh to get it every morning.
+It reads the same tables as the dashboard and changes nothing. Nothing pending,
+no message. Run ./scripts/remind_mac.sh to get it at set times every day.
+
+Where it goes:
+- With TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env, to your Telegram bot:
+  a normal notification on your phone, free.
+- Otherwise as an iMessage to REMINDER_PHONE, through the Messages app on your
+  Mac. If the Mac is signed in to iMessage with that same number, the text
+  lands in your thread with yourself, usually without an alert.
 """
 from __future__ import annotations
 
@@ -15,6 +20,8 @@ import json
 import os
 import subprocess
 import sys
+import urllib.parse
+import urllib.request
 import warnings
 from datetime import date, datetime, timedelta
 
@@ -113,6 +120,14 @@ end run"""
         raise RuntimeError(result.stderr.strip() or "Messages couldn't send the text")
 
 
+def send_telegram(token: str, chat_id: str, text: str) -> None:
+    """Send `text` from your Telegram bot. Raises OSError or RuntimeError if Telegram refuses."""
+    data = urllib.parse.urlencode({"chat_id": chat_id, "text": text}).encode()
+    with urllib.request.urlopen(f"https://api.telegram.org/bot{token}/sendMessage", data, timeout=30) as response:
+        if not json.load(response).get("ok"):
+            raise RuntimeError("Telegram didn't accept the message")
+
+
 def load_rows():
     from .config import Config
     from .storage import open_outreach_table, open_tables, open_todo_table
@@ -152,17 +167,25 @@ def main(argv=None) -> int:
     if not text:
         print("Nothing pending, no text sent.")
         return 0
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     phone = os.environ.get("REMINDER_PHONE", "").strip()
-    if not phone:
-        print("Set REMINDER_PHONE in .env (e.g. +14805551234) to get this as a text:\n\n" + text)
+    if not (token and chat_id) and not phone:
+        print("Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, or REMINDER_PHONE, in .env to get this sent to you:\n\n"
+              + text)
         return 1
     try:
-        send_imessage(phone, text)
+        if token and chat_id:
+            send_telegram(token, chat_id, text)
+            where = "Telegram"
+        else:
+            send_imessage(phone, text)
+            where = phone
     except (OSError, RuntimeError) as e:
-        print(f"Couldn't send the text: {e}")
-        notify("FRIDAY couldn't text you", str(e))
+        print(f"Couldn't send the reminder: {e}")
+        notify("FRIDAY couldn't reach you", str(e))
         return 1
-    print(f"Texted {phone}:\n\n{text}")
+    print(f"Sent to {where}:\n\n{text}")
     return 0
 
 

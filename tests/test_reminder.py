@@ -1,7 +1,10 @@
 import json
+import os
 import unittest
 from datetime import datetime
+from unittest import mock
 
+from tracker import reminder
 from tracker.reminder import pending
 
 NOW = datetime(2026, 10, 30, 8, 0)  # a Friday
@@ -48,6 +51,32 @@ class PendingTest(unittest.TestCase):
         text = pending([], todos, [], NOW)
         self.assertIn("(and 3 more)", text)
         self.assertNotIn("Task 8", text)
+
+
+class SendTest(unittest.TestCase):
+    def run_main(self, env):
+        rows = ([{"Company": "Affirm", "Status": "Interview", "Next action": "Pick a slot", "Rounds": ""}], [], [])
+        with mock.patch.dict(os.environ, env, clear=False), \
+                mock.patch.object(reminder, "load_rows", return_value=rows), \
+                mock.patch.object(reminder, "send_telegram") as telegram, \
+                mock.patch.object(reminder, "send_imessage") as imessage, \
+                mock.patch("builtins.print"):
+            code = reminder.main([])
+        return code, telegram, imessage
+
+    def test_telegram_wins_over_imessage(self):
+        code, telegram, imessage = self.run_main(
+            {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "42", "REMINDER_PHONE": "+1555"})
+        self.assertEqual(code, 0)
+        self.assertEqual(telegram.call_args.args[:2], ("t", "42"))
+        self.assertIn("Pick a slot at Affirm", telegram.call_args.args[2])
+        imessage.assert_not_called()
+
+    def test_imessage_without_telegram(self):
+        code, telegram, imessage = self.run_main({"TELEGRAM_BOT_TOKEN": "", "TELEGRAM_CHAT_ID": "", "REMINDER_PHONE": "+1555"})
+        self.assertEqual(code, 0)
+        telegram.assert_not_called()
+        self.assertEqual(imessage.call_args.args[0], "+1555")
 
 
 if __name__ == "__main__":
