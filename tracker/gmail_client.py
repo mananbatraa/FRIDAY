@@ -75,6 +75,9 @@ class GmailClient:
                 "id": msg["id"], "thread_id": msg["threadId"], "date": sent.date().isoformat(),
                 "from": headers.get("from", ""), "to": headers.get("to", ""), "subject": headers.get("subject", ""),
                 "auto": _is_auto_reply(headers), "labels": tuple(msg.get("labelIds", [])),
+                # Mailing lists and newsletters carry these; a person writing to you doesn't.
+                "bulk": bool(headers.get("list-unsubscribe") or headers.get("list-id"))
+                or headers.get("precedence", "").lower() in ("bulk", "list", "junk"),
                 "account": self.address,
             })
         return sorted(messages, key=lambda m: m["date"])
@@ -110,7 +113,8 @@ class GmailClient:
             self.service.users().messages().trash(userId="me", id=message_id).execute(num_retries=RETRIES)
 
 
-_THREAD_HEADERS = ["From", "To", "Subject", "Auto-Submitted", "X-Autoreply", "X-Autorespond", "Precedence"]
+_THREAD_HEADERS = ["From", "To", "Subject", "Auto-Submitted", "X-Autoreply", "X-Autorespond", "Precedence",
+                   "List-Unsubscribe", "List-Id"]
 
 
 def _is_auto_reply(headers: dict) -> bool:

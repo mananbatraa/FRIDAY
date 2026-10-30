@@ -56,7 +56,8 @@ class PendingTest(unittest.TestCase):
 class SendTest(unittest.TestCase):
     def run_main(self, env):
         rows = ([{"Company": "Affirm", "Status": "Interview", "Next action": "Pick a slot", "Rounds": ""}], [], [])
-        with mock.patch.dict(os.environ, env, clear=False), \
+        with mock.patch.dict(os.environ, {"NTFY_TOPIC": "", **env}, clear=False), \
+                mock.patch("tracker.daily.extra_sections", return_value=[]), \
                 mock.patch.object(reminder, "load_rows", return_value=rows), \
                 mock.patch.object(reminder, "send_whatsapp") as whatsapp, \
                 mock.patch.object(reminder, "send_telegram") as telegram, \
@@ -87,6 +88,20 @@ class SendTest(unittest.TestCase):
         self.assertEqual(code, 0)
         telegram.assert_not_called()
         self.assertEqual(imessage.call_args.args[0], "+1555")
+
+    def test_ntfy_before_imessage(self):
+        rows = ([{"Company": "Affirm", "Status": "Interview", "Next action": "Pick a slot", "Rounds": ""}], [], [])
+        with mock.patch.dict(os.environ, {"WHATSAPP_PHONE": "", "TELEGRAM_BOT_TOKEN": "", "NTFY_TOPIC": "topic",
+                                          "REMINDER_PHONE": "+1555"}, clear=False), \
+                mock.patch("tracker.daily.extra_sections", return_value=[("Stock app", ["Momentum: SELL X"])]), \
+                mock.patch.object(reminder, "load_rows", return_value=rows), \
+                mock.patch("tracker.notify.send_ntfy") as ntfy, \
+                mock.patch.object(reminder, "send_imessage") as imessage, \
+                mock.patch("builtins.print"):
+            self.assertEqual(reminder.main([]), 0)
+        self.assertEqual(ntfy.call_args.args[0], "topic")
+        self.assertIn("Momentum: SELL X", ntfy.call_args.args[2])
+        imessage.assert_not_called()
 
 
 if __name__ == "__main__":
