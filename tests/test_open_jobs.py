@@ -4,7 +4,7 @@ import unittest
 from unittest import mock
 
 from tracker import open_jobs
-from tracker.open_jobs import Job, load_opened, log_opened, normalize, parse_jobs, select
+from tracker.open_jobs import SECTIONS, Job, load_opened, log_opened, normalize, parse_jobs, parse_sections, select
 
 ROW = """<tr>
 <td>{company}</td>
@@ -38,6 +38,12 @@ README = f"""## 💻 Software Engineering New Grad Roles
 {row("<strong>Old</strong>", "Old Role", "SF", "https://old.com/1")}
 </tbody></table></details>
 
+## 🤖 Data Science, AI & Machine Learning New Grad Roles
+<table><tbody>
+{row("<strong>ML Co</strong>", "ML Engineer", "SF", "https://ml.com/1", "2d")}
+{row("↳", "Acme dupe", "SF", "https://acme.com/jobs/1", "2d")}
+</tbody></table>
+
 ## 📱 Product Management New Grad Roles
 <table><tbody>
 {row("<strong>PM Co</strong>", "PM", "SF", "https://pm.com/1")}
@@ -50,6 +56,15 @@ class ParseTest(unittest.TestCase):
         jobs = parse_jobs(README)
         self.assertEqual([j.url.split("?")[0] for j in jobs],
                          ["https://acme.com/jobs/1", "https://acme.com/jobs/2", "https://big.com/jobs/9", "https://gov.com/a"])
+
+    def test_data_science_section(self):
+        self.assertEqual([j.company for j in parse_jobs(README, SECTIONS["data"])], ["ML Co", "ML Co"])
+
+    def test_both_sections_newest_first(self):
+        jobs = select(parse_sections(README, ["swe", "data"]))
+        self.assertEqual([j.url.split("?")[0] for j in jobs],
+                         ["https://acme.com/jobs/1", "https://ml.com/1", "https://acme.com/jobs/2",
+                          "https://gov.com/a", "https://big.com/jobs/9"])
 
     def test_sub_rows_take_the_company_above(self):
         jobs = parse_jobs(README)
@@ -100,9 +115,9 @@ class MainTest(unittest.TestCase):
             with mock.patch.object(open_jobs, "open_tab") as tab, mock.patch.object(open_jobs.time, "sleep"), \
                     mock.patch("builtins.input", side_effect=["", "q"]) as ask, mock.patch("builtins.print"):
                 open_jobs.main(["--readme", readme, "--log", log, "--batch", "3"])
-                self.assertEqual(tab.call_count, 4)
+                self.assertEqual(tab.call_count, 5)
                 self.assertEqual(ask.call_count, 1)
-            self.assertEqual(len(load_opened(log)), 4)
+            self.assertEqual(len(load_opened(log)), 5)
             with mock.patch.object(open_jobs, "open_tab") as tab, mock.patch("builtins.print"):
                 open_jobs.main(["--readme", readme, "--log", log])
                 tab.assert_not_called()
@@ -119,7 +134,7 @@ class MainTest(unittest.TestCase):
                     mock.patch.object(open_jobs, "open_tab") as tab, mock.patch("builtins.print"):
                 open_jobs.main(["--readme", readme, "--log", log, "--batch", "3", "--wait", "120", "--close",
                                 "--browser", "Google Chrome"])
-            self.assertEqual([len(c.args[0]) for c in win.call_args_list], [3, 1])
+            self.assertEqual([len(c.args[0]) for c in win.call_args_list], [3, 2])
             self.assertEqual([c.args for c in close.call_args_list], [("11", "Google Chrome"), ("12", "Google Chrome")])
             self.assertEqual(wait.call_count, 2)
             tab.assert_not_called()

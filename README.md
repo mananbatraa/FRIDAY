@@ -110,7 +110,8 @@ are in `.gitignore`).
 
 ## Open new job postings for Tsenta
 
-`tracker/open_jobs.py` reads the Software Engineering section of the
+`tracker/open_jobs.py` reads the Software Engineering and Data Science, AI &
+Machine Learning sections of the
 [SimplifyJobs New-Grad-Positions](https://github.com/SimplifyJobs/New-Grad-Positions#-software-engineering-new-grad-roles)
 list and opens each open role's apply link in a browser tab, a batch at a
 time, so Tsenta can apply. Closed roles (🔒) are skipped, and every link it
@@ -125,6 +126,7 @@ python3 -m tracker.open_jobs --list               # just show what would open
 python3 -m tracker.open_jobs --batch 15 --browser "Google Chrome"
 python3 -m tracker.open_jobs --max-age 14 --location Remote --location AZ
 python3 -m tracker.open_jobs --skip-no-sponsor --skip-citizen
+python3 -m tracker.open_jobs --section data        # only Data Science, AI & ML (or --section swe)
 python3 -m tracker.open_jobs --mark-seen          # log everything current as seen, open nothing
 python3 -m tracker.open_jobs --browser "Google Chrome" --wait 120 --close
                                                   # every 2 minutes, close the tabs and open the next 10

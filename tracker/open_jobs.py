@@ -1,4 +1,4 @@
-"""Open new-grad Software Engineering job postings in browser tabs, a batch at a time.
+"""Open new-grad Software Engineering and Data Science / AI / ML job postings in browser tabs, a batch at a time.
 
 Reads the SimplifyJobs New-Grad-Positions list, skips closed roles and any
 link you've already opened (kept in opened_jobs.csv), and opens the apply
@@ -26,7 +26,10 @@ from datetime import datetime
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 README_URL = "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md"
-SECTION = "Software Engineering New Grad Roles"
+SECTIONS = {
+    "swe": "Software Engineering New Grad Roles",
+    "data": "Data Science, AI & Machine Learning New Grad Roles",
+}
 LOG_FILE = "opened_jobs.csv"
 LOG_FIELDS = ["Opened", "Company", "Role", "Location", "Age", "URL"]
 
@@ -69,11 +72,12 @@ def _text(cell):
     return html.unescape(re.sub(r"<[^>]+>", "", cell)).strip(" /")
 
 
-def parse_jobs(readme, section=SECTION):
+def parse_jobs(readme, section=SECTIONS["swe"]):
     """Active roles in one section of the README, newest first, closed ones left out."""
-    start = readme.find(section)
-    if start < 0:
+    heading = re.search(r"^## .*" + re.escape(section), readme, re.M)
+    if not heading:
         raise ValueError(f"Couldn't find the '{section}' section in the README")
+    start = heading.end()
     end = readme.find("\n## ", start)
     body = readme[start:end if end > 0 else None]
     # The first table is the active roles; the inactive ones sit in a <details> after it.
@@ -95,6 +99,12 @@ def parse_jobs(readme, section=SECTION):
             continue
         jobs.append(Job(company, _text(cells[1]), _text(cells[2]), html.unescape(link.group(1)), _text(cells[4])))
     return jobs
+
+
+def parse_sections(readme, keys):
+    """Roles from several sections, newest first across all of them."""
+    jobs = [job for key in keys for job in parse_jobs(readme, SECTIONS[key])]
+    return sorted(jobs, key=lambda job: job.age_days)
 
 
 def normalize(url):
@@ -197,6 +207,9 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--batch", type=int, default=10, help="tabs to open at a time (default 10)")
     p.add_argument("--browser", help='Mac app to open tabs in, e.g. "Google Chrome" (default: your default browser)')
+    p.add_argument("--section", action="append", choices=sorted(SECTIONS), metavar="NAME",
+                   help="which part of the list to open: swe, data (Data Science, AI & ML), or both by repeating "
+                        "(default: both)")
     p.add_argument("--max-age", type=int, metavar="DAYS", help="only roles posted in the last DAYS days")
     p.add_argument("--location", action="append", default=[], metavar="TEXT",
                    help="only roles whose location contains TEXT (repeat for several, e.g. --location Remote --location AZ)")
@@ -219,7 +232,7 @@ def main(argv=None):
     else:
         print("Fetching the latest list from GitHub...")
         readme = fetch_readme()
-    jobs = select(parse_jobs(readme), load_opened(args.log), args.max_age, args.location,
+    jobs = select(parse_sections(readme, args.section or list(SECTIONS)), load_opened(args.log), args.max_age, args.location,
                   args.skip_no_sponsor, args.skip_citizen)
     print(f"{len(jobs)} new open role(s) to go through.")
     if not jobs:
