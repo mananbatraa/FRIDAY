@@ -84,8 +84,10 @@ class AlertTest(unittest.TestCase):
         items = [Item(datetime(2026, 11, 1, 23, 59), "CSE 540: Draft", "due", True),
                  Item(datetime(2026, 11, 1, 15, 0), "Call with Samina", "event"),
                  Item(datetime(2026, 11, 6, 23, 59), "CSE 598: HW3", "due", True)]
-        today, week = report_sections(items, morning)
+        items.append(Item(datetime(2026, 11, 2, 10, 0), "Team sync", "event"))
+        today, tomorrow, week = report_sections(items, morning)
         self.assertEqual(today, ("Today", ["CSE 540: Draft (due today)", "Call with Samina (today 3:00 PM)"]))
+        self.assertEqual(tomorrow, ("Tomorrow", ["Team sync (tomorrow 10:00 AM)"]))
         self.assertEqual(week, ("Due this week", ["CSE 598: HW3 (due Fri Nov 6)"]))
 
 

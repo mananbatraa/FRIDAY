@@ -53,6 +53,25 @@ class PendingTest(unittest.TestCase):
         self.assertNotIn("Task 8", text)
 
 
+class MorningTest(unittest.TestCase):
+    def test_greeting_quote_list_signoff(self):
+        with mock.patch.dict(os.environ, {"FRIDAY_NAME": "Naman"}):
+            text = pending([{"Company": "Rokt", "Status": "Assessment", "Next action": "Complete the assessment"}], [],
+                           [], NOW, [("Tomorrow", ["CSE 540: Draft (due tomorrow)"]), ("Stock app", ["Momentum: SELL X"])],
+                           morning=True)
+        lines = text.split("\n")
+        self.assertTrue(lines[0].startswith("Good morning, Naman ☀️"))
+        self.assertTrue(lines[2].startswith("“") and " — " in lines[2])  # the quote
+        self.assertIn("🟠 Tomorrow\n• CSE 540: Draft (due tomorrow)", text)
+        self.assertIn("📌 To do\n• Complete the assessment at Rokt", text)
+        self.assertIn("📈 Stocks\n• Momentum: SELL X", text)
+        self.assertEqual(lines[-1], "I'll keep you posted on everything else. Just lock in. 💪")
+
+    def test_quiet_morning_still_says_hello(self):
+        text = pending([], [], [], NOW, [], morning=True)
+        self.assertIn("Nothing on the list today", text)
+
+
 class SendTest(unittest.TestCase):
     def run_main(self, env):
         rows = ([{"Company": "Affirm", "Status": "Interview", "Next action": "Pick a slot", "Rounds": ""}], [], [])

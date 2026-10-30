@@ -60,7 +60,7 @@ def _section(title: str, lines: list[str]) -> list[str]:
 
 
 def pending(apps: list[dict], todos: list[dict], outreach_rows: list[dict], now: datetime,
-            extra: list[tuple[str, list[str]]] = ()) -> str:
+            extra: list[tuple[str, list[str]]] = (), morning: bool = False) -> str:
     """The reminder text, or "" when nothing is pending."""
     today = now.date()
 
@@ -103,8 +103,11 @@ def pending(apps: list[dict], todos: list[dict], outreach_rows: list[dict], now:
                   for r in sorted(outreach_rows, key=lambda r: r.get("Sent on", ""))
                   if r.get("Status") == FOLLOW_UP_DUE]
 
-    sections = dict(extra)  # today, this week, emails to answer, stock app (see tracker/daily.py)
+    sections = dict(extra)  # today, tomorrow, this week, emails to answer, stock app (see tracker/daily.py)
+    if morning:
+        return morning_message(now, sections, [t for _, t in rounds], [t for _, t in tasks], follow_ups)
     body = (_section("Today", sections.pop("Today", []))
+            + _section("Tomorrow", sections.pop("Tomorrow", []))
             + _section("Interviews in the next 48 hours", [t for _, t in rounds])
             + _section("To-dos", [t for _, t in tasks])
             + _section("Due this week", sections.pop("Due this week", []))
@@ -115,6 +118,35 @@ def pending(apps: list[dict], todos: list[dict], outreach_rows: list[dict], now:
     if not body:
         return ""
     return "\n".join([f"FRIDAY: pending for {now:%a %b %-d}"] + body)
+
+
+def morning_message(now: datetime, sections: dict, rounds: list[str], tasks: list[str], follow_ups: list[str]) -> str:
+    """Good morning, a quote, the day's list, and a sign-off. Sent even on a quiet day."""
+    from .quotes import quote_for
+
+    name = os.environ.get("FRIDAY_NAME", "").strip()
+    quote, author = quote_for(now.date())
+    lines = [f"Good morning{', ' + name if name else ''} ☀️ It's {now:%A, %-d %B}.", "", f"“{quote}” — {author}", ""]
+    groups = [
+        ("🔴 Today", sections.pop("Today", []) + rounds),
+        ("🟠 Tomorrow", sections.pop("Tomorrow", [])),
+        ("📌 To do", tasks),
+        ("✉️ Reply to", sections.pop("Emails waiting on your reply", []) + [f"Follow up: {f}" for f in follow_ups]),
+        ("📅 Later this week", sections.pop("Due this week", [])),
+    ] + [({"Stock app": "📈 Stocks", "Couldn't check": "⚠️ Couldn't check"}.get(title, title), items)
+         for title, items in sections.items()]
+    listed = False
+    for title, items in groups:
+        if items:
+            listed = True
+            lines += [title] + [f"• {i}" for i in items[:MAX_ITEMS]]
+            if len(items) > MAX_ITEMS:
+                lines.append(f"  +{len(items) - MAX_ITEMS} more")
+            lines.append("")
+    if not listed:
+        lines += ["Nothing on the list today. Enjoy it.", ""]
+    lines.append("I'll keep you posted on everything else. Just lock in. 💪")
+    return "\n".join(lines)
 
 
 def send_imessage(phone: str, text: str) -> None:
@@ -183,7 +215,7 @@ def main(argv=None) -> int:
     from .daily import extra_sections
 
     now = datetime.now()
-    text = pending(apps, todos, outreach_rows, now, extra_sections(now, apps, todos))
+    text = pending(apps, todos, outreach_rows, now, extra_sections(now, apps, todos), morning=now.hour < 12)
     if args.print:
         print(text or "Nothing pending.")
         return 0

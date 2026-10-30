@@ -247,8 +247,10 @@ def alert_text(item: Item, now: datetime) -> str:
 def report_sections(items: list[Item], now: datetime) -> list[tuple[str, list[str]]]:
     today = now.date()
     todays = [i.label(today) for i in items if i.when.date() == today and i.when >= now - timedelta(hours=1)]
-    week = [i.label(today) for i in items if i.kind == "due" and today < i.when.date() <= today + timedelta(days=7)]
-    return [("Today", todays), ("Due this week", week)]
+    tomorrow = today + timedelta(days=1)
+    next_day = [i.label(today) for i in items if i.when.date() == tomorrow]
+    week = [i.label(today) for i in items if i.kind == "due" and tomorrow < i.when.date() <= today + timedelta(days=7)]
+    return [("Today", todays), ("Tomorrow", next_day), ("Due this week", week)]
 
 
 def main(argv=None) -> int:
