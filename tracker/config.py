@@ -29,6 +29,12 @@ class Config:
     claude_model: str
     outreach_query: str = ""  # empty: outreach tracking is off
     follow_up_days: int = 7
+    also_read: tuple = ()  # more Gmail addresses to read, each with its own login file
+
+    def accounts(self) -> list[tuple[str, str]]:
+        """(address, login file) for every Gmail account to read; the main one has no fixed address."""
+        extra = [(a, f"token_{a.split('@')[0].replace('.', '_')}.json") for a in self.also_read]
+        return [("", self.token_file)] + extra
 
     @classmethod
     def load(cls) -> "Config":
@@ -43,4 +49,5 @@ class Config:
             claude_model=os.environ.get("CLAUDE_MODEL", "claude-opus-5-5"),
             outreach_query=os.environ.get("OUTREACH_QUERY", "").strip(),
             follow_up_days=int(os.environ.get("FOLLOW_UP_DAYS", "7")),
+            also_read=tuple(a.strip() for a in os.environ.get("ALSO_READ_GMAIL", "").split(",") if a.strip()),
         )

@@ -64,6 +64,12 @@ class NewRowTest(unittest.TestCase):
         row = outreach.new_row(m)
         self.assertEqual((row["Company"], row["Email"]), ("JPMorgan Chase", "careers@jpmchase.com"))
 
+    def test_company_from_roles_at_subject(self):
+        for subject, company in [("Software and AI roles at AKASA", "AKASA"), ("MS CS student interested in 6sense", "6sense")]:
+            m = msg("m10", "2026-10-26", sent=True, to="recruiting@x.com", subject=subject)
+            with self.subTest(subject=subject):
+                self.assertEqual(outreach.new_row(m)["Company"], company)
+
 
 class FakeGmail:
     def __init__(self, threads, sent):

@@ -14,7 +14,7 @@ APP_COLUMNS = [
     # Filled in from the dashboard. Rounds is a JSON list of scheduled interview rounds.
     "Work mode", "Rounds",
 ]
-EMAIL_COLUMNS = ["Date", "Kind", "Company", "Role", "From", "Subject", "Email link", "Message ID"]
+EMAIL_COLUMNS = ["Date", "Kind", "Company", "Role", "From", "Subject", "Email link", "Message ID", "Account"]
 TODO_COLUMNS = ["Task", "Company", "Due", "Done", "Source"]
 # One row per cold email you sent (found in Gmail's Sent mail); see tracker/outreach.py.
 OUTREACH_COLUMNS = [

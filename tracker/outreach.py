@@ -21,6 +21,8 @@ import re
 from datetime import date, timedelta
 from email.utils import parseaddr
 
+from .models import gmail_url
+
 WAITING = "Waiting"
 FOLLOW_UP_DUE = "Follow-up due"
 FOLLOWED_UP = "Followed up"
@@ -57,7 +59,8 @@ def person(to_header: str) -> tuple[str, str, str]:
 
 
 # The Mailer's subjects end with the company: "... Software / ML Engineer interested in Stripe".
-_SUBJECT_COMPANY = re.compile(r"\binterested in (?:joining |working at )?(.+?)\s*$", re.IGNORECASE)
+# "MS CS student interested in 6sense", "Software and AI roles at AKASA"
+_SUBJECT_COMPANY = re.compile(r"\b(?:interested in (?:joining |working at )?|roles at )(.+?)\s*$", re.IGNORECASE)
 
 
 def new_row(message: dict) -> dict:
@@ -68,7 +71,7 @@ def new_row(message: dict) -> dict:
     return {
         "Sent on": message["date"], "Name": name, "Email": address, "Company": company,
         "Subject": message["subject"], "Status": WAITING, "Last reply": "", "Follow up on": "",
-        "Email link": f"https://mail.google.com/mail/u/0/#all/{message['id']}",
+        "Email link": gmail_url(message["id"], message.get("account", "")),
         "Thread ID": message["thread_id"], "Message ID": message["id"], "Notes": "",
     }
 

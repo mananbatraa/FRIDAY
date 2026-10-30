@@ -21,7 +21,7 @@ class LoginNeeded(Exception):
     """The saved Google login is missing or expired and no browser login is allowed."""
 
 
-def get_credentials(credentials_file: str, token_file: str, interactive: bool = True) -> Credentials:
+def get_credentials(credentials_file: str, token_file: str, interactive: bool = True, account: str = "") -> Credentials:
     """Load the saved token, refreshing it or running the browser login if needed.
 
     Google expires logins for apps in "Testing" mode after about 7 days; with
@@ -46,7 +46,9 @@ def get_credentials(credentials_file: str, token_file: str, interactive: bool = 
         if not interactive:
             raise LoginNeeded("Google login expired or needs new access. Open FRIDAY.command once to log in again.")
         flow = InstalledAppFlow.from_client_secrets_file(credentials_file, SCOPES)
-        creds = flow.run_local_server(port=0)
+        if account:
+            print(f"Opening Google login: pick {account}")
+        creds = flow.run_local_server(port=0, **({"login_hint": account} if account else {}))
     with open(token_file, "w") as f:
         f.write(creds.to_json())
     return creds

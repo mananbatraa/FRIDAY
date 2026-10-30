@@ -19,7 +19,17 @@ PAUSE_SECONDS = 0.1
 
 class GmailClient:
     def __init__(self, creds):
+        self.creds = creds
         self.service = build("gmail", "v1", credentials=creds, cache_discovery=False)
+        self._address = None
+
+    @property
+    def address(self) -> str:
+        """The Gmail address this login reads."""
+        if self._address is None:
+            profile = self.service.users().getProfile(userId="me").execute(num_retries=RETRIES)
+            self._address = profile.get("emailAddress", "")
+        return self._address
 
     def search(self, query: str, limit: int = 500) -> list[str]:
         """Return message IDs matching a Gmail search query, newest first."""
@@ -48,6 +58,7 @@ class GmailClient:
             date=sent.date().isoformat(),
             text=_body_text(msg["payload"]),
             labels=tuple(msg.get("labelIds", [])),
+            account=self.address,
         )
 
     def thread(self, thread_id: str) -> list[dict]:
@@ -64,6 +75,7 @@ class GmailClient:
                 "id": msg["id"], "thread_id": msg["threadId"], "date": sent.date().isoformat(),
                 "from": headers.get("from", ""), "to": headers.get("to", ""), "subject": headers.get("subject", ""),
                 "auto": _is_auto_reply(headers), "labels": tuple(msg.get("labelIds", [])),
+                "account": self.address,
             })
         return sorted(messages, key=lambda m: m["date"])
 

@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass
 from email.utils import parseaddr
 
-from .models import Email
+from .models import Email, normalize_company
 
 CONFIRMATION = "Applied"
 ASSESSMENT = "Assessment"
@@ -130,7 +130,7 @@ def _classify(email: Email) -> str:
 _ROLE_WORDS = re.compile(
     r"\b(engineer|engineering|developer|analyst|intern|internship|scientist|manager|designer|specialist|associate|"
     r"fellowship|fellow|architect|consultant|programmer|sre|devops|lead|researcher|technician|administrator|"
-    r"position|role|graduate|grad|trainee|apprentice|careers?|program|programme|co-?op)\b",
+    r"position|role|graduate|grad|trainee|apprentice|careers?|program|programme|co-?op|sdet|sde|swe|qa)\b",
     re.IGNORECASE,
 )
 _GENERIC_SENDERS = re.compile(
@@ -377,12 +377,114 @@ def _real_sender(email: Email) -> str:
     return email.sender
 
 
+# Subject pieces that are never the role: "Interview - SDET I - Modivcare"
+_SUBJECT_NOISE = re.compile(
+    r"^(?:interview|interview invitation|application|application update|application status|application received|"
+    r"assessment|next steps?|update|thank you|thanks|re|fwd?)$",
+    re.IGNORECASE,
+)
+
+
+def _role_from_subject_parts(subject: str, company: str) -> str:
+    """"Interview - SDET I - Modivcare": the piece that's neither the company nor a generic word."""
+    parts = [_clean(p) for p in re.split(r"\s+[-–—|]\s+", subject)]
+    if len(parts) < 2:
+        return ""
+    rest = [p for p in parts if p and not _SUBJECT_NOISE.match(p)
+            and normalize_company(p) != normalize_company(company or "-")]
+    return rest[0] if len(rest) == 1 else ""
+
+
 def extract(email: Email) -> Extracted:
     first_lines = "\n".join(email.text.splitlines()[:15])[:1500]
     company = (tidy_company(_company_from_text(email.subject)) or tidy_company(_company_from_text(first_lines))
                or tidy_company(_company_from_sender(_real_sender(email))))
     role = (tidy_role(_role_from_text(email.subject), company)
-            or tidy_role(_role_from_text(first_lines), company))
+            or tidy_role(_role_from_text(first_lines), company)
+            or tidy_role(_role_from_subject_parts(email.subject, company), company)
+            or tidy_role(_role_from_text(email.text[1500:4000]), company))
     if role.lower() == company.lower():  # "Thank you for applying to Ascent Developer Solutions"
         role = ""
     return Extracted(company=company, role=role)
+
+
+# ---------------------------------------------------------------- next action
+
+_NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "ten": 10, "fourteen": 14}
+_MONTHS = {m: i for i, m in enumerate(
+    ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
+_WITHIN = re.compile(
+    r"\b(?:within|in the next|next|in|expires? in|valid for|available for|have)\s+(\d{1,2}|one|two|three|four|five|six|"
+    r"seven|ten|fourteen)\s+(business |calendar |working )?(days?|hours?)\b",
+    re.IGNORECASE,
+)
+_BY_DATE = re.compile(
+    r"\b(?:by|before|no later than|expires?(?: on)?|deadline(?: is|:)?|due(?: date| on| by)?:?|until|complete it by)\s+"
+    r"(?:(?:mon|tues|wednes|thurs|fri|satur|sun)day,?\s+)?"
+    r"(?:(?P<month>jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(?P<day>\d{1,2})(?:st|nd|rd|th)?"
+    r"(?:,?\s+(?P<year>\d{4}))?"
+    r"|(?P<m2>\d{1,2})/(?P<d2>\d{1,2})(?:/(?P<y2>\d{2,4}))?)",
+    re.IGNORECASE,
+)
+_ASKS_AVAILABILITY = re.compile(
+    r"your availability|dates and times|times that work|time slots?|schedule (?:a|your|the) (?:time|call|interview)|"
+    r"calendly\.com|book a time|select a time|pick a time",
+    re.IGNORECASE,
+)
+
+
+def deadline(text: str, sent: str) -> "date | None":
+    """The date something is due, from "within 5 days", "by November 3" or "expires on 11/02/2026"."""
+    from datetime import date, timedelta
+
+    try:
+        start = date.fromisoformat(sent)
+    except ValueError:
+        return None
+    found = _BY_DATE.search(text)
+    if found:
+        try:
+            if found.group("month"):
+                month, day = _MONTHS[found.group("month").lower()[:3]], int(found.group("day"))
+                year = int(found.group("year") or start.year)
+            else:
+                month, day = int(found.group("m2")), int(found.group("d2"))
+                year = int(found.group("y2") or start.year)
+                year += 2000 if year < 100 else 0
+            due = date(year, month, day)
+            if due < start and not (found.group("year") or found.group("y2")):
+                due = date(year + 1, month, day)  # "by January 5" written in December
+            if start <= due <= start + timedelta(days=60):
+                return due
+        except (ValueError, KeyError):
+            pass
+    found = _WITHIN.search(text)
+    if found:
+        n = found.group(1).lower()
+        n = _NUMBERS.get(n) or int(n)
+        if found.group(3).lower().startswith("hour"):
+            return start + timedelta(days=max(1, n // 24))
+        if (found.group(2) or "").strip().lower() in ("business", "working"):
+            due = start
+            while n:
+                due += timedelta(days=1)
+                n -= due.weekday() < 5
+            return due
+        return start + timedelta(days=n)
+    return None
+
+
+def next_action(email: Email, kind: str) -> str:
+    """What you need to do about this email, for the Next action column and the reminders."""
+    text = f"{email.subject}\n{email.text[:6000]}"
+    due = deadline(text, email.date)
+    when = f" by {due:%a %-d %b}" if due else ""
+    if kind == ASSESSMENT:
+        return f"Complete the assessment{when}"
+    if kind == INTERVIEW:
+        if _ASKS_AVAILABILITY.search(text):
+            return f"Reply with your availability{when}"
+        return f"Prepare for the interview{when}"
+    if kind == OFFER:
+        return f"Respond to the offer{when}"
+    return ""

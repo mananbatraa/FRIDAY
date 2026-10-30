@@ -70,4 +70,5 @@ class Claude:
 
 def rules(email: Email) -> dict:
     found = job_emails.extract(email)
-    return {"kind": job_emails.classify(email), "company": found.company, "role": found.role, "next_action": ""}
+    kind = job_emails.classify(email)
+    return {"kind": kind, "company": found.company, "role": found.role, "next_action": job_emails.next_action(email, kind)}

@@ -52,14 +52,24 @@ def main(argv=None) -> int:
 
     config = Config.load()
     query = args.query or (DEFAULT_QUERY.format(days=args.days) if args.days else config.job_query)
-    try:
-        creds = get_credentials(config.credentials_file, config.token_file, interactive=not args.background)
-    except LoginNeeded as e:
-        print(e)
-        notify("FRIDAY needs you", str(e))
-        return 1
-    gmail = GmailClient(creds)
-    app_table, email_table = open_tables(creds, config.sheet_id)
+    # Every Gmail account to read. The first one also holds the Sheet, if you use one.
+    gmails = []
+    for address, token_file in config.accounts():
+        try:
+            creds = get_credentials(config.credentials_file, token_file, interactive=not args.background, account=address)
+        except LoginNeeded as e:
+            message = f"{address or 'Main account'}: {e}"
+            print(message)
+            notify("FRIDAY needs you", message)
+            if not gmails and not address:
+                return 1
+            continue
+        gmails.append(GmailClient(creds))
+        if address and gmails[-1].address.lower() != address.lower():
+            print(f"Warning: {token_file} is logged in as {gmails[-1].address}, not {address}")
+    gmail = gmails[0]
+    main_creds = gmail.creds
+    app_table, email_table = open_tables(main_creds, config.sheet_id)
     apps, logged = app_table.load(), email_table.load()
     notes = {}
     if args.rebuild:
@@ -77,16 +87,16 @@ def main(argv=None) -> int:
     else:
         print("Reading emails with built-in rules (set ANTHROPIC_API_KEY to use Claude)")
 
-    ids = gmail.search(query, limit=args.limit)
-    new_ids = [i for i in ids if i not in seen]
-    print(f"{len(ids)} emails match the search, {len(new_ids)} not seen before")
-
-    # Oldest first, so statuses move forward in the order things happened.
     emails = []
-    for n, message_id in enumerate(new_ids, 1):
-        emails.append(gmail.get(message_id))
-        if n % 20 == 0 or n == len(new_ids):
-            print(f"  downloaded {n}/{len(new_ids)}", flush=True)
+    for account in gmails:
+        ids = account.search(query, limit=args.limit)
+        new_ids = [i for i in ids if i not in seen]
+        print(f"{account.address}: {len(ids)} emails match the search, {len(new_ids)} not seen before")
+        for n, message_id in enumerate(new_ids, 1):
+            emails.append(account.get(message_id))
+            if n % 20 == 0 or n == len(new_ids):
+                print(f"  downloaded {n}/{len(new_ids)}", flush=True)
+    # Oldest first, so statuses move forward in the order things happened.
     emails.sort(key=lambda e: e.date)
     kinds, changes, needs_you, unknown = Counter(), [], [], []
     for email in emails:
@@ -95,6 +105,7 @@ def main(argv=None) -> int:
         logged.append({
             "Date": email.date, "Kind": info["kind"], "Company": info["company"], "Role": info["role"],
             "From": email.sender, "Subject": email.subject, "Email link": email.gmail_link, "Message ID": email.id,
+            "Account": email.account,
         })
         if info["kind"] == VERIFICATION:
             needs_you.append(email)
@@ -121,9 +132,12 @@ def main(argv=None) -> int:
 
     outreach_table = outreach_rows = None
     if config.outreach_query and not args.no_outreach:
-        outreach_table = open_outreach_table(creds, config.sheet_id)
+        outreach_table = open_outreach_table(main_creds, config.sheet_id)
         outreach_rows = outreach_table.load()
-        sent, news = outreach.update(gmail, outreach_rows, config.outreach_query, date.today(), config.follow_up_days)
+        sent, news = [], []
+        for account in gmails:  # a thread from the other account is simply not found, and left alone
+            s_, n_ = outreach.update(account, outreach_rows, config.outreach_query, date.today(), config.follow_up_days)
+            sent, news = sent + s_, news + n_
         print(f"\nOutreach: {len(sent)} sent emails logged, {len(outreach_rows)} tracked")
         for line in sent[-10:] + news:
             print(f"  {line}")
@@ -135,12 +149,18 @@ def main(argv=None) -> int:
         notify(f"FRIDAY: {len(changes)} update{'s' if len(changes) != 1 else ''}",
                "; ".join(c[2:] for c in changes[:3]) + (" …" if len(changes) > 3 else ""))
 
-    folders = by_folder(logged if args.sort_old else logged[first_new:])
-    codes = old_codes(gmail, recent_codes(logged, date.today(), everything=args.sort_old))
+    # Each email is sorted in the mailbox it came from (rows saved before this had no Account: the main one).
+    to_sort = logged if args.sort_old else logged[first_new:]
+    sorting = []
+    for account in gmails:
+        mine = lambda rows: [r for r in rows if (r.get("Account") or gmail.address) == account.address]  # noqa: E731
+        sorting.append((account, by_folder(mine(to_sort)),
+                        old_codes(account, recent_codes(mine(logged), date.today(), everything=args.sort_old))))
     if args.dry_run:
-        for folder, ids in folders.items():
-            print(f"Would move {len(ids)} emails to {folder}")
-        print(f"Would bin {len(codes)} security-code emails")
+        for account, folders, codes in sorting:
+            for folder, ids in folders.items():
+                print(f"{account.address}: would move {len(ids)} emails to {folder}")
+            print(f"{account.address}: would bin {len(codes)} security-code emails")
         print("\nDry run: nothing saved.")
         return 0
     app_table.save(apps)
@@ -150,7 +170,10 @@ def main(argv=None) -> int:
     if outreach_table:
         outreach_table.save(outreach_rows)
         print(f"Saved {len(outreach_rows)} outreach emails to " + ("the Outreach tab" if config.sheet_id else "outreach.csv"))
-    move_to_folders(gmail, folders, codes)
+    for account, folders, codes in sorting:
+        if len(gmails) > 1:
+            print(f"{account.address}:")
+        move_to_folders(account, folders, codes)
     return 0
 
 
