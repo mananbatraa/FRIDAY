@@ -7,6 +7,10 @@ cd "$(dirname "$0")/.."
 DIR="$(pwd)"
 LABEL="com.friday.openjobs"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+# Use FRIDAY's own Python when it's set up: macOS has usually already let it read
+# this folder, which a background job can't do with the system python3 on the Desktop.
+PY="$DIR/.venv/bin/python"
+[ -x "$PY" ] || PY=/usr/bin/python3
 
 if [ "$1" = "off" ]; then
   launchctl unload "$PLIST" 2>/dev/null || true
@@ -25,7 +29,7 @@ cat > "$PLIST" <<PLIST
   <key>WorkingDirectory</key><string>$DIR</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/python3</string>
+    <string>$PY</string>
     <string>-m</string><string>tracker.open_jobs</string>
     <string>--batch</string><string>10</string>
     <string>--browser</string><string>Google Chrome</string>
