@@ -22,6 +22,9 @@ class TrackerTest(unittest.TestCase):
         # Rejection applies at any stage.
         apply_email(rows, email("2026-10-09"), {"kind": "Rejected", "company": "Affirm", "role": "SWE I", "next_action": ""})
         self.assertEqual((rows[0]["Status"], rows[0]["Last update"]), ("Rejected", "2026-10-09"))
+        # A same-day "thanks for applying" doesn't reopen it.
+        self.assertIsNone(apply_email(rows, email("2026-10-09"), {"kind": "Applied", "company": "Affirm", "role": "", "next_action": ""}))
+        self.assertEqual(rows[0]["Status"], "Rejected")
         self.assertEqual(len(rows), 1)
 
     def test_different_roles_same_company(self):

@@ -6,6 +6,7 @@ module decides what kind of email it is and who it's from, without any API.
 """
 from __future__ import annotations
 
+import html
 import re
 from dataclasses import dataclass
 from email.utils import parseaddr
@@ -55,8 +56,10 @@ _KIND_PHRASES = [
     )),
     (INTERVIEW, (
         "schedule an interview", "interview invitation", "invite you to interview", "invitation to interview",
-        "like to interview", "next round", "phone screen", "schedule a call", "calendly.com", "your interview",
-        "interview with",
+        "like to interview", "next round", "phone screen", "schedule a call", "calendly.com", "your interview is", "your interview has", "schedule your interview",
+        "confirm your interview",
+        "interview with", "technical interview", "invite you to the next",
+        "dates and times when you", "share your availability", "your availability for",
     )),
     (ASSESSMENT, (
         "online assessment", "coding challenge", "coding assessment", "hackerrank", "codesignal", "codility",
@@ -108,7 +111,7 @@ def classify(email: Email) -> str:
 
 
 def _classify(email: Email) -> str:
-    if is_marketing(email):
+    if "SENT" in email.labels or is_marketing(email):  # your own replies aren't applications
         return OTHER
     subject_kind = _match_kind(email.subject)
     body_kind = _match_kind(email.text[:4000])
@@ -127,7 +130,7 @@ def _classify(email: Email) -> str:
 _ROLE_WORDS = re.compile(
     r"\b(engineer|engineering|developer|analyst|intern|internship|scientist|manager|designer|specialist|associate|"
     r"fellowship|fellow|architect|consultant|programmer|sre|devops|lead|researcher|technician|administrator|"
-    r"position|role|graduate|grad|trainee|apprentice|careers?)\b",
+    r"position|role|graduate|grad|trainee|apprentice|careers?|program|programme|co-?op)\b",
     re.IGNORECASE,
 )
 _GENERIC_SENDERS = re.compile(
@@ -170,6 +173,12 @@ _COMPANY_PATTERNS = [
     r"(?i:application received|received your application)\s*[-–—:|]\s*(?P<c>[A-Z0-9][^!?.|\n]{1,60})",
     # "We've received your application! | Abby Care"
     r"\|\s*(?P<c>[A-Z0-9][^|\n]{1,60})\s*$",
+    # lowercase names: "Thanks for applying to neurohire.ai"
+    r"(?i:applying|applied|application)\s+(?i:to|at|with)\s+(?P<c>[a-z][\w.-]{2,40})\s*[!.]?\s*$",
+    # "onsemi Your Recent Application-AI Engineer"
+    r"^(?P<c>[a-z][\w&.'’-]{1,30})\s+(?i:your (?:recent )?(?:job )?application)",
+    # "Thank You from EBSCO Information Services, LLC"
+    r"^(?i:thank you|thanks)\s+from\s+(?P<c>[A-Z0-9][\w&.,'’ -]{1,60}?)\s*[!.]?\s*$",
     # "Leidos -Thank You For Applying ..."
     r"^(?P<c>[A-Z0-9][\w&.'’ ]{1,40}?)\s*[-–—:]\s*(?i:thank)",
     # "FedEx Freight Application Status Update"
@@ -206,6 +215,7 @@ class Extracted:
 
 
 def _clean(value: str) -> str:
+    value = re.sub(r"[\u200b-\u200f\u2060\ufeff]", "", value)  # zero-width and direction marks
     value = re.sub(r"\s+", " ", value).strip(" \t-–—:|,.!?\"'*")
     value = re.sub(r"^(?:the|our)\s+", "", value, flags=re.IGNORECASE)
     return value.strip()
@@ -270,10 +280,109 @@ def _role_from_text(text: str) -> str:
     return ""
 
 
+# ---------------------------------------------------------------- cleanup
+
+# Sentence carrying on after a company name: "Navy Federal Credit Union has been received".
+_COMPANY_TAIL = re.compile(
+    r"\s+(?:has|have been|is|are|was|were|itself|using|via|and (?:our|are|we|will|is|the)|staff positions)\b.*"
+    # a role stuck on the end: "Independent Bank AI Engineer"
+    r"|\s+(?:(?:AI|ML|Data|Software|Senior|Junior|Lead|Associate)\s+){0,2}(?:engineer|intern|internship|analyst|developer|scientist)$"
+    r"|\s+[-–—|]\s+.*$",
+    re.IGNORECASE,
+)
+_COMPANY_ATS = re.compile(
+    r"^(?:my\s*workday|workday)\s+|\s+(?:workday|@\s*icims|@\s*\w+(?:\.\w+)+)$", re.IGNORECASE,
+)
+_LEGAL_SUFFIX = re.compile(r",?\s+(?:mfg\.?\s+)?(?:inc\.?|incorporated|llc|l\.l\.c\.|ltd\.?|corp\.?)$", re.IGNORECASE)
+# Openers that are a sentence, not a name: "You're in the Game – Thanks for Applying!"
+_NOT_A_COMPANY = re.compile(r"^(?:you|you['’]re|your|we|we['’]re|our|thank|thanks|this|that|it|hi|hello|dear)\b",
+                            re.IGNORECASE)
+# Words the patterns sometimes catch that are never an employer.
+_JUNK_NAMES = {"the", "job", "jobs", "jr", "team", "dear", "dear naman", "hi naman", "naman", "thank you", "thanks",
+               "candidate experience site", "careers", "career site", "application", "hiring", "applicantemails",
+               "application received", "application update", "next steps", "excellence", "update", "updates"}
+
+# Different spellings of the same employer, so their emails land on one row.
+_ALIASES = {
+    "bah": "Booz Allen Hamilton", "booz allen hamilton_united states": "Booz Allen Hamilton",
+    "pnnl": "Pacific Northwest National Laboratory", "cook": "Cook Medical", "cook group": "Cook Medical",
+    "microstrategy services": "Strategy", "microstrategy": "Strategy", "j.m": "The J.M. Smucker Co.",
+    "jpmorganchase": "JPMorgan Chase", "jpmorgan chase & co": "JPMorgan Chase", "jpmorgan chase & co.": "JPMorgan Chase",
+    "slfworkdaynotifications": "Sun Life", "sunlife": "Sun Life", "deltadentalmo": "Delta Dental of Missouri",
+    "7eleven": "7-Eleven", "purestorage": "Everpure", "freight": "FedEx Freight", "ebsco information services": "EBSCO",
+    "ebscoind": "EBSCO", "sel": "Schweitzer Engineering Laboratories (SEL)", "selinc": "Schweitzer Engineering Laboratories (SEL)",
+}
+
+
+def tidy_company(name: str) -> str:
+    """Trim a found company name down to the name, or return "" if it isn't one."""
+    name = html.unescape(name or "").replace("\xa0", " ")
+    name = re.sub(r"[^\w\s&.,'’()@|:–—-]", "", name)  # emoji and symbols: "Next Steps 🍿"
+    name = _clean(_COMPANY_ATS.sub("", _clean(name)))
+    name = _clean(_COMPANY_TAIL.sub("", name))
+    if not name or _NOT_A_COMPANY.match(name):
+        return ""
+    if name.isupper() and len(name) > 5:  # "DAIKIN COMFORT TECHNOLOGIES MFG INC"
+        name = name.title()
+    name = _clean(_LEGAL_SUFFIX.sub("", name))
+    key = name.lower().rstrip(".")
+    if key in _ALIASES:
+        return _ALIASES[key]
+    if len(name) < 2 or key in _JUNK_NAMES:
+        return ""
+    return name
+
+
+# Requisition numbers: "R-121905", "REQ380441", "JR2027784", "(ID 2026-2112)", "[2026-12640]", "- 169810".
+_REQ_ID = re.compile(
+    r"^(?:R-?\d{4,}|REQ\d{4,}|JR\d{4,})\s+|\s*[(\[](?:ID |Job (?:number|ID):?\s*|Req(?:uisition)? ?#?\s*)?[\w-]*\d{4,}[\w-]*[)\]]"
+    r"|\s+[-–]\s+(?:JR|R-?|REQ)?\d{4,}\b|\s+(?:JR|REQ)\d{4,}\b|-R\d{5,}\b",
+    re.IGNORECASE,
+)
+# Sentence carrying on after the role: "Data Test Analyst I has been received", "role. If you ..."
+_ROLE_TAIL = re.compile(
+    r"(?:(?<!Jr)(?<!Sr)\.\s|\s+(?:has been|have been|was|is currently|is being|will be|job, you can|we\b|at\s+[A-Z]))(?:.|\n)*$"
+    r"|\s+(?:position|role|job|opportunity)\.?$",
+)
+_ROLE_PLACE = re.compile(r"\s*\((?:[A-Z][\w .]+,\s*[A-Z]{2}|Remote|Hybrid|Onsite|Open|Bachelors|Masters)\)\s*$")
+_NOT_A_ROLE = re.compile(r"^(?:this|that|a|an|the|our|your|role|position|job)\b\.?\s*(?:position|role|job)?$|^role\b|^this\b",
+                         re.IGNORECASE)
+
+
+def tidy_role(role: str, company: str = "") -> str:
+    role = html.unescape(role or "").replace("\xa0", " ")
+    role = _clean(role)
+    # "Snowflake | AI Research Scientist", "Kairos Power - Applications Integration Engineer"
+    if company and role.lower().startswith(company.lower()):
+        role = re.sub(r"^\s*[|:–—-]\s*", "", role[len(company):]) if re.match(r"\s*[|:–—-]", role[len(company):]) else role
+    # "Naman Dewan - R0173771 Entry Level Software Engineer": your name, then the requisition number
+    role = re.sub(r"^[A-Z][a-z]+ [A-Z][a-z]+\s*[-–]\s*(?=(?:R|REQ|JR)?-?\d{4,}\b)", "", role)
+    for _ in range(3):
+        role = _clean(_ROLE_TAIL.sub("", _clean(role)))
+        role = _clean(_REQ_ID.sub(" ", role))
+        role = _clean(_ROLE_PLACE.sub("", role))
+    role = re.sub(r"^(?:a|an)\s+(?=[A-Z])", "", role)  # "a Analyst - Process Analytics"
+    role = re.sub(r"^(?:position|role) of\s+", "", role, flags=re.IGNORECASE)
+    if not role or _NOT_A_ROLE.match(role) or not _looks_like_role(role) or len(role) > 90:
+        return ""
+    return role
+
+
+def _real_sender(email: Email) -> str:
+    """Tsenta forwards company mail from its own inbox; the footer names the real sender."""
+    if "tsenta" in email.sender.lower():
+        found = re.search(r"Sent From:\s*(\S+@[\w.-]+)", email.text)
+        if found:
+            return found.group(1)
+    return email.sender
+
+
 def extract(email: Email) -> Extracted:
     first_lines = "\n".join(email.text.splitlines()[:15])[:1500]
-    company = _company_from_text(email.subject) or _company_from_text(first_lines) or _company_from_sender(email.sender)
-    role = _role_from_text(email.subject) or _role_from_text(first_lines)
+    company = (tidy_company(_company_from_text(email.subject)) or tidy_company(_company_from_text(first_lines))
+               or tidy_company(_company_from_sender(_real_sender(email))))
+    role = (tidy_role(_role_from_text(email.subject), company)
+            or tidy_role(_role_from_text(first_lines), company))
     if role.lower() == company.lower():  # "Thank you for applying to Ascent Developer Solutions"
         role = ""
     return Extracted(company=company, role=role)
