@@ -21,6 +21,8 @@ class Email:
 _SUFFIXES = (
     " inc", " inc.", " llc", " ltd", " ltd.", " limited", " pvt", " pvt.", " private",
     " corp", " corp.", " corporation", " co", " co.", " gmbh", " plc", " group",
+    # Longer and shorter forms of one name: "Infineon Technologies" / "Infineon", "Slipstream IT" / "Slipstream".
+    " technologies", " enterprises", " international", " solutions", " broadcast", " companies", " it", " family",
 )
 
 
@@ -33,4 +35,4 @@ def normalize_company(name: str) -> str:
             if name.endswith(suffix):
                 name = name[: -len(suffix)].strip()
                 changed = True
-    return name
+    return name.replace(" ", "")  # "Vori Health" and "Vorihealth" are one company

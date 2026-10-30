@@ -40,7 +40,9 @@ def apply_email(rows: list[dict], email: Email, info: dict) -> str | None:
     if role and not row.get("Role"):
         row["Role"] = role
     old = row.get("Status", "")
-    if kind == REJECTED or _RANK.get(kind, 0) > _RANK.get(old, 0):
+    # A "thanks for applying" that arrives the same day as the rejection doesn't reopen it.
+    reopens = not (kind == CONFIRMATION and old == REJECTED)
+    if kind == REJECTED or (reopens and _RANK.get(kind, 0) > _RANK.get(old, 0)):
         row["Status"] = kind
         row["Last update"] = email.date
         row["Latest email"] = link

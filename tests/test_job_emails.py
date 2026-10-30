@@ -2,12 +2,16 @@
 import unittest
 
 from tracker.job_emails import (
-    ASSESSMENT, CONFIRMATION, INTERVIEW, OFFER, OTHER, REJECTED, VERIFICATION, classify, extract,
+    ASSESSMENT, CONFIRMATION, INTERVIEW, OFFER, OTHER, REJECTED, VERIFICATION, classify, extract, tidy_company,
+    tidy_role,
 )
 from tracker.models import Email
 
 # sender, subject, body, kind, company, role ("" = don't check)
 CASES = [
+    ("copart@myworkday.com", "Thank You For Applying!", "Thank you for applying.", CONFIRMATION, "Copart", ""),
+    ("selinc@myworkday.com", "Thank you for your application", "We received it.", CONFIRMATION,
+     "Schweitzer Engineering Laboratories (SEL)", ""),
     ("Wipro Notifications <notifications@broadcast.wipro.com>", "Your One-Time Password (OTP) for Profile Creation",
      "Your One-Time Password (OTP) is 452323. To proceed, please visit our candidate portal and enter the OTP.",
      VERIFICATION, "", ""),
@@ -113,6 +117,15 @@ CASES = [
      OTHER, "", ""),
     ("Career Coach <coach@careercoach.com>", "Your application strategy is broken",
      "Join our free webinar to learn how to get an offer letter.", OTHER, "", ""),
+    ("Modivcare Talent Acquisition <modivcare@myworkday.com>", "Interview - SDET I - Modivcare",
+     "Thank you for your interest in our SDET I position! We're excited to invite you to the next stage of the "
+     "application process: a 1-hour technical interview. Please share a few dates and times when you're available.",
+     INTERVIEW, "Modivcare", ""),
+    ("Angana Ray <recruiting@acs.org>", "Application Confirmation",
+     "Thank you for applying. We will review your experience and background thoroughly. You will be notified whether "
+     "you have been successful in moving to the next stage of the process.", CONFIRMATION, "", ""),
+    ("IBM <ibmrecruitment@ibm.com>", "You have successfully submitted your IBM job application - Software Engineer Apprentice",
+     "Thank you for applying. While you wait to hear from us, visit our careers page to find tips on acing your interview.", CONFIRMATION, "", ""),
 ]
 
 
@@ -127,6 +140,87 @@ class JobEmailTest(unittest.TestCase):
                     self.assertEqual(found.company, company)
                 if role:
                     self.assertEqual(found.role, role)
+
+    def test_own_reply_is_not_an_application(self):
+        email = Email(id="x", thread_id="x", sender="Namz Dwan <me@gmail.com>", subject="Re: Interview - SDET I",
+                      date="2026-10-28", text="Thank you for the invitation.", labels=("SENT",))
+        self.assertEqual(classify(email), OTHER)
+
+
+# Raw values the patterns found in real emails, and what they should become.
+COMPANIES = [
+    ("Navy Federal Credit Union has been received", "Navy Federal Credit Union"),
+    ("Daimler Truck and our people inspired", "Daimler Truck"),
+    ("Jobs for Humanity itself", "Jobs for Humanity"),
+    ("Cytek Biosciences Inc using ADP services", "Cytek Biosciences"),
+    ("Welocalize - Application Received", "Welocalize"),
+    ("MyWorkday T-Mobile", "T-Mobile"),
+    ("ExtensisHR @ icims", "ExtensisHR"),
+    ("DAIKIN COMFORT TECHNOLOGIES MFG INC", "Daikin Comfort Technologies"),
+    ("You’re in the Game", ""),
+    ("Strategy is both rewarding and challenging", "Strategy"),
+    ("The", ""),
+    ("J.M", "The J.M. Smucker Co."),
+    ("Bah", "Booz Allen Hamilton"),
+    ("KLA", "KLA"),
+    ("Schweitzer Engineering Laboratories", "Schweitzer Engineering Laboratories"),
+    ("Hex has been received", "Hex"),
+    ("Aon", "Aon"),
+    ("Candidate Experience site", ""),
+    ("Vestcom has updates", "Vestcom"),
+    ("Independent Bank AI Engineer", "Independent Bank"),
+    ("Next Steps 🍿", ""),
+    ("Applicantemails", ""),
+    ("Miami Dolphins and Hard Rock Stadium", "Miami Dolphins and Hard Rock Stadium"),
+]
+ROLES = [
+    ("R-121905 AT&T Technology Development Program was successfully received", "", "AT&T Technology Development Program"),
+    ("role. If you are not selected for this", "", ""),
+    ("Data Test Analyst I has been received", "", "Data Test Analyst I"),
+    ("Sales Reporting & Analysis Intern is currently being reviewed by the hiring team", "", "Sales Reporting & Analysis Intern"),
+    ("Junior Ai Prompt Engineer job, you can do it now", "", "Junior Ai Prompt Engineer"),
+    ("Software Engineer (Job number: 200063403). We’re glad you’re interested in a career", "", "Software Engineer"),
+    ("Software Engineer 1 [2026-12640] position. We aim to connect", "", "Software Engineer 1"),
+    ("REQ380441 Summer 2027 Software Engineering Internship", "", "Summer 2027 Software Engineering Internship"),
+    ("Snowflake | AI Research Scientist, New Grad", "Snowflake", "AI Research Scientist, New Grad"),
+    ("a Analyst - Process Analytics - FCRM 5A", "", "Analyst - Process Analytics - FCRM 5A"),
+    ("Intern, Artificial Intelligence &amp; Innovation", "", "Intern, Artificial Intelligence & Innovation"),
+    ("this position", "", ""),
+    ("Jr. Software QA Engineer", "", "Jr. Software QA Engineer"),
+    ("Naman Dewan \u200e- R0173771 Entry Level Software Engineer", "", "Entry Level Software Engineer"),
+    ("Kairos Power - Applications Integration Engineer", "Kairos Power", "Applications Integration Engineer"),
+    ("Associate Software Engineer II-R00152281", "", "Associate Software Engineer II"),
+    ("Business Analyst - Pricing & Analytics", "OMNIA Partners", "Business Analyst - Pricing & Analytics"),
+    ("2027 Summer Intern - Enterprise Data Analyst, Data Products (Raleigh, NC)", "",
+     "2027 Summer Intern - Enterprise Data Analyst, Data Products"),
+]
+
+
+class TidyTest(unittest.TestCase):
+    def test_lowercase_names(self):
+        for subject, want in [("Thanks for applying to neurohire.ai", "neurohire.ai"),
+                              ("onsemi Your Recent Application-AI Engineer - 2506767", "onsemi"),
+                              ("Update on your application", ""),
+                              ("Amentum Thanks You for your application", "")]:
+            email = Email(id="x", thread_id="x", sender="Workable <noreply@candidates.workablemail.com>",
+                          subject=subject, date="2026-10-19", text="")
+            with self.subTest(subject=subject):
+                self.assertEqual(extract(email).company, want)
+
+    def test_companies(self):
+        for raw, want in COMPANIES:
+            with self.subTest(raw=raw):
+                self.assertEqual(tidy_company(raw), want)
+
+    def test_roles(self):
+        for raw, company, want in ROLES:
+            with self.subTest(raw=raw):
+                self.assertEqual(tidy_role(raw, company), want)
+
+    def test_tsenta_forward_uses_real_sender(self):
+        email = Email(id="x", thread_id="x", sender="inbox@mail.tsenta.com", subject="Thanks!", date="2026-10-19",
+                      text="We got it.\n\nThis is your Tsenta Managed Email.\nSent From: careers@recruitment.americanexpress.com")
+        self.assertEqual(extract(email).company, "Americanexpress")
 
 
 if __name__ == "__main__":
