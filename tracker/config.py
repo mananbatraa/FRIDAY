@@ -31,10 +31,19 @@ class Config:
     follow_up_days: int = 7
     also_read: tuple = ()  # more Gmail addresses to read, each with its own login file
 
-    def accounts(self) -> list[tuple[str, str]]:
-        """(address, login file) for every Gmail account to read; the main one has no fixed address."""
-        extra = [(a, f"token_{a.split('@')[0].replace('.', '_')}.json") for a in self.also_read]
-        return [("", self.token_file)] + extra
+    def accounts(self) -> list[tuple[str, str, str]]:
+        """(address, login file, app credentials file) for every Gmail account to read.
+
+        The main account has no fixed address. Another account can log in through a different
+        Google Cloud app, e.g. one where it's already a test user: put that app's file next to
+        credentials.json as credentials_<name>.json (for ndewan1@asu.edu, credentials_ndewan1.json).
+        """
+        accounts = [("", self.token_file, self.credentials_file)]
+        for address in self.also_read:
+            name = address.split("@")[0].replace(".", "_")
+            own = f"credentials_{name}.json"
+            accounts.append((address, f"token_{name}.json", own if os.path.exists(own) else self.credentials_file))
+        return accounts
 
     @classmethod
     def load(cls) -> "Config":

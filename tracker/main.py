@@ -54,9 +54,9 @@ def main(argv=None) -> int:
     query = args.query or (DEFAULT_QUERY.format(days=args.days) if args.days else config.job_query)
     # Every Gmail account to read. The first one also holds the Sheet, if you use one.
     gmails = []
-    for address, token_file in config.accounts():
+    for address, token_file, credentials_file in config.accounts():
         try:
-            creds = get_credentials(config.credentials_file, token_file, interactive=not args.background, account=address)
+            creds = get_credentials(credentials_file, token_file, interactive=not args.background, account=address)
         except LoginNeeded as e:
             message = f"{address or 'Main account'}: {e}"
             print(message)

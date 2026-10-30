@@ -117,6 +117,8 @@ CASES = [
      OTHER, "", ""),
     ("Career Coach <coach@careercoach.com>", "Your application strategy is broken",
      "Join our free webinar to learn how to get an offer letter.", OTHER, "", ""),
+    ("Riipen <notifications@riipen.com>", "Application declined", "Your application to the project was declined.",
+     REJECTED, "", ""),
     ("Modivcare Talent Acquisition <modivcare@myworkday.com>", "Interview - SDET I - Modivcare",
      "Thank you for your interest in our SDET I position! We're excited to invite you to the next stage of the "
      "application process: a 1-hour technical interview. Please share a few dates and times when you're available.",

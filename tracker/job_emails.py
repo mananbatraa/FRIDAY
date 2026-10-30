@@ -53,6 +53,7 @@ _KIND_PHRASES = [
         "unfortunately", "not to move forward", "not moving forward", "will not be moving forward",
         "decided to pursue other", "other candidates", "position has been filled", "not been selected",
         "were not selected", "regret to inform", "not proceed with your application", "no longer under consideration",
+        "application declined", "application was declined", "application has been declined",
     )),
     (INTERVIEW, (
         "schedule an interview", "interview invitation", "invite you to interview", "invitation to interview",
@@ -300,7 +301,8 @@ _NOT_A_COMPANY = re.compile(r"^(?:you|you['’]re|your|we|we['’]re|our|thank|t
 # Words the patterns sometimes catch that are never an employer.
 _JUNK_NAMES = {"the", "job", "jobs", "jr", "team", "dear", "dear naman", "hi naman", "naman", "thank you", "thanks",
                "candidate experience site", "careers", "career site", "application", "hiring", "applicantemails",
-               "application received", "application update", "next steps", "excellence", "update", "updates"}
+               "application received", "application update", "next steps", "excellence", "update", "updates",
+               "teams notified"}
 
 # Different spellings of the same employer, so their emails land on one row.
 _ALIASES = {
