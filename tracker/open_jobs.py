@@ -175,6 +175,10 @@ def close_window(window_id, browser):
 def countdown(seconds, message):
     """Wait, showing the time left. False if you pressed Ctrl+C to stop."""
     try:
+        if not sys.stdout.isatty():  # running in the background: no live timer in the log
+            print(f"{message} in {seconds}s")
+            time.sleep(seconds)
+            return True
         for left in range(seconds, 0, -1):
             print(f"\r{message} in {left // 60}:{left % 60:02d} (Ctrl+C to stop) ", end="", flush=True)
             time.sleep(1)
