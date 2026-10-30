@@ -13,3 +13,5 @@ logs/
 opened_jobs.csv
 credentials_*.json
 token_*.json
+backups/
+done.json
