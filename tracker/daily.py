@@ -166,7 +166,7 @@ def stock_actions(folder: str, now: datetime) -> list[str]:
             continue
         label = path.stem.replace("multifactor", "Multi-factor").replace("momentum", "Momentum")
         for when, text in state.get("log", []):
-            if str(when).startswith(f"{now:%Y-%m-%d}") and _ACTION.search(text):
+            if f"{now:%Y-%m-%d}" <= str(when)[:16] <= f"{now:%Y-%m-%d %H:%M}" and _ACTION.search(text):
                 out.append(f"{label}: {text.split(':')[0] if len(text) > 110 else text}")
         for order in state.get("pending", []):
             name = order.get("info", {}).get("name") or order.get("ticker", "")

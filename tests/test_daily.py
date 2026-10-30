@@ -76,7 +76,8 @@ class StockTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             (Path(folder) / "paper").mkdir()
             (Path(folder) / "paper" / "momentum.json").write_text(json.dumps({
-                "log": [["2026-10-30 11:06", "SELL Illumina (ILMN) at about $233.80: down 14%."],
+                "log": [["2026-10-30 08:30", "SELL Illumina (ILMN) at about $233.80: down 14%."],
+                        ["2026-10-30 11:06", "SELL Later Co, after the report"],
                         ["2026-10-30 07:13", "FYI Sandisk (SNDK) is -9% today. No action."],
                         ["2026-10-29 10:00", "BUY Old Co yesterday"]],
                 "pending": [{"side": "buy", "ticker": "DIXON.NS", "info": {"name": "Dixon"}}]}))
