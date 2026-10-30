@@ -1,9 +1,9 @@
 #!/bin/bash
-# Text yourself what's pending every morning (set REMINDER_PHONE in .env first).
-#   ./scripts/remind_mac.sh            every day at 9:00
-#   ./scripts/remind_mac.sh 8:30       every day at 8:30
-#   ./scripts/remind_mac.sh off        turn it off
-# If your Mac is asleep at that time, the text goes out when it wakes up.
+# Text yourself what's pending (set REMINDER_PHONE in .env first).
+#   ./scripts/remind_mac.sh                          every day at 9:00
+#   ./scripts/remind_mac.sh 9:00 12:00 16:00 19:00   at each of these times (24-hour clock)
+#   ./scripts/remind_mac.sh off                      turn it off
+# If your Mac is asleep at one of the times, that text goes out when it wakes up.
 set -e
 cd "$(dirname "$0")/.."
 DIR="$(pwd)"
@@ -17,14 +17,21 @@ if [ "$1" = "off" ]; then
   exit 0
 fi
 
-TIME="${1:-9:00}"
-HOUR="${TIME%%:*}"
-MINUTE="${TIME#*:}"
-[ "$MINUTE" = "$TIME" ] && MINUTE=0
-if ! [[ "$HOUR" =~ ^[0-9]+$ && "$MINUTE" =~ ^[0-9]+$ ]] || [ "$HOUR" -gt 23 ] || [ "$MINUTE" -gt 59 ]; then
-  echo "Give a time like 9:00 or 18:30."
-  exit 1
-fi
+TIMES=("$@")
+[ ${#TIMES[@]} -eq 0 ] && TIMES=(9:00)
+SLOTS=""
+for TIME in "${TIMES[@]}"; do
+  HOUR="${TIME%%:*}"
+  MINUTE="${TIME#*:}"
+  [ "$MINUTE" = "$TIME" ] && MINUTE=0
+  if ! [[ "$HOUR" =~ ^[0-9]+$ && "$MINUTE" =~ ^[0-9]+$ ]] || [ "$((10#$HOUR))" -gt 23 ] || [ "$((10#$MINUTE))" -gt 59 ]; then
+    echo "Give times on the 24-hour clock, like 9:00 or 16:30 (not \"$TIME\")."
+    exit 1
+  fi
+  SLOTS="$SLOTS
+    <dict><key>Hour</key><integer>$((10#$HOUR))</integer><key>Minute</key><integer>$((10#$MINUTE))</integer></dict>"
+  WHEN="$WHEN$(printf ' %d:%02d' "$((10#$HOUR))" "$((10#$MINUTE))")"
+done
 if ! grep -q "^REMINDER_PHONE=." .env 2>/dev/null; then
   echo "Put your phone number in .env first, e.g. REMINDER_PHONE=+14805551234"
   exit 1
@@ -44,7 +51,8 @@ cat > "$PLIST" <<PLIST
     <string>-m</string><string>tracker.reminder</string>
   </array>
   <key>StartCalendarInterval</key>
-  <dict><key>Hour</key><integer>$((10#$HOUR))</integer><key>Minute</key><integer>$((10#$MINUTE))</integer></dict>
+  <array>$SLOTS
+  </array>
   <key>StandardOutPath</key><string>$DIR/logs/reminder.log</string>
   <key>StandardErrorPath</key><string>$DIR/logs/reminder.log</string>
 </dict>
@@ -52,4 +60,4 @@ cat > "$PLIST" <<PLIST
 PLIST
 launchctl unload "$PLIST" 2>/dev/null || true
 launchctl load "$PLIST"
-printf "Daily reminder texts are on: every day at %d:%02d. Log: %s/logs/reminder.log\n" "$((10#$HOUR))" "$((10#$MINUTE))" "$DIR"
+echo "Reminder texts are on, every day at$WHEN. Log: $DIR/logs/reminder.log"
