@@ -51,7 +51,7 @@ def parse_ics(ics: str) -> list[tuple[datetime, str]]:
         if line == "BEGIN:VEVENT":
             current = {}
         elif line == "END:VEVENT" and current is not None:
-            when = _ics_when(current.get("DTEND") or current.get("DTSTART") or "")
+            when = _ics_when(current.get("DTSTART") or "")  # Canvas puts the due date here
             if when and current.get("SUMMARY"):
                 events.append((when, current["SUMMARY"]))
             current = None
@@ -61,11 +61,20 @@ def parse_ics(ics: str) -> list[tuple[datetime, str]]:
     return events
 
 
+# Calendar entries that aren't work to hand in.
+_NOT_WORK = re.compile(r"office hours?|live session|instructor[- ]led|lecture\b|class meeting|recitation", re.IGNORECASE)
+_COURSE = re.compile(r"\s*\[\d{4}\w*?-\w-([A-Z]{2,4})(\d{3})-\d+\]")  # [2026FallB-T-CSE540-82242]
+
+
 def canvas_tasks(ics: str, now: datetime, days: int = 7) -> list[str]:
-    """Assignments and events due from now to `days` ahead, soonest first."""
-    soon = sorted(e for e in parse_ics(ics) if now - timedelta(hours=1) <= e[0] <= now + timedelta(days=days))
+    """Assignments, quizzes and other work due from now to `days` ahead, soonest first."""
+    soon = sorted(e for e in parse_ics(ics) if now - timedelta(hours=1) <= e[0] <= now + timedelta(days=days)
+                  and not _NOT_WORK.search(e[1]))
     out = []
     for when, title in soon:
+        course = _COURSE.search(title)
+        if course:
+            title = f"{course.group(1)} {course.group(2)}: " + _COURSE.sub("", title).strip()
         day = "today" if when.date() == now.date() else \
             "tomorrow" if when.date() == now.date() + timedelta(days=1) else when.strftime("%a %b %-d")
         time = "" if (when.hour, when.minute) == (0, 0) else f" {when:%-I:%M %p}"

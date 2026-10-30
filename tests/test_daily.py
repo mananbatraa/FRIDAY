@@ -26,6 +26,15 @@ DTSTART;VALUE=DATE:20261120
 SUMMARY:Final project [CSE 551]
 END:VEVENT
 BEGIN:VEVENT
+DTSTART:20261030T220000Z
+DTEND:20261030T230000Z
+SUMMARY:CSE 540 - TA Office Hours [2026FallB-T-CSE540-82242]
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;VALUE=DATE;VALUE=DATE:20261101
+SUMMARY:Submission: Draft Smart Contract Design [2026FallB-T-CSE540-82242]
+END:VEVENT
+BEGIN:VEVENT
 DTSTART;VALUE=DATE:20261020
 SUMMARY:Old homework [CSE 551]
 END:VEVENT
@@ -36,9 +45,11 @@ END:VCALENDAR
 class CanvasTest(unittest.TestCase):
     def test_this_weeks_items_soonest_first(self):
         lines = canvas_tasks(ICS, NOW)
-        self.assertEqual(len(lines), 2)  # the old one and the one weeks away are left out
+        # Old work, work weeks away and office hours are left out.
+        self.assertEqual(len(lines), 3)
         self.assertTrue(lines[0].startswith("Quiz 3: Merkle trees and ECDSA [CSE 539] (due"))  # folded line joined
-        self.assertEqual(lines[1], "Homework 4 [CSE 551] (due Mon Nov 2)")
+        self.assertEqual(lines[1], "CSE 540: Submission: Draft Smart Contract Design (due Sun Nov 1)")
+        self.assertEqual(lines[2], "Homework 4 [CSE 551] (due Mon Nov 2)")
 
 
 def msg(sender, auto=False):
