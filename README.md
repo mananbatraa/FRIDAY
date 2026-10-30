@@ -131,6 +131,29 @@ are in `.gitignore`).
   When that happens you'll get a "FRIDAY needs you" notification; double-click
   `FRIDAY.command` and log in again.
 
+## Open new job postings for Tsenta
+
+`tracker/open_jobs.py` reads the Software Engineering section of the
+[SimplifyJobs New-Grad-Positions](https://github.com/SimplifyJobs/New-Grad-Positions#-software-engineering-new-grad-roles)
+list and opens each open role's apply link in a browser tab, a batch at a
+time, so Tsenta can apply. Closed roles (🔒) are skipped, and every link it
+opens is logged in `opened_jobs.csv`, so a role never opens twice. Run it
+whenever the list updates and you only get what's new.
+
+Double-click **`OpenJobs.command`** in Finder, or from Terminal:
+
+```bash
+python3 -m tracker.open_jobs                      # 10 tabs, then waits for Enter before the next 10
+python3 -m tracker.open_jobs --list               # just show what would open
+python3 -m tracker.open_jobs --batch 15 --browser "Google Chrome"
+python3 -m tracker.open_jobs --max-age 14 --location Remote --location AZ
+python3 -m tracker.open_jobs --skip-no-sponsor --skip-citizen
+python3 -m tracker.open_jobs --mark-seen          # log everything current as seen, open nothing
+```
+
+It needs no setup beyond Python 3. Change the double-click defaults by
+editing the `OPTIONS=` line at the top of `OpenJobs.command`.
+
 ## Dashboard
 
 ```bash

@@ -10,3 +10,4 @@ __pycache__/
 .venv/
 logs/
 .DS_Store
+opened_jobs.csv
