@@ -104,6 +104,15 @@ are in `.gitignore`).
 - **Automatic checks:** run `./scripts/schedule_mac.sh` once. Your Mac then
   checks every 3 hours while it's awake and shows a notification when an
   application changes. Turn it off with `./scripts/schedule_mac.sh off`.
+- **Daily text of what's pending:** put your phone number in `.env` as
+  `REMINDER_PHONE=+14805551234` and run `./scripts/remind_mac.sh` once (or
+  `./scripts/remind_mac.sh 8:30` for another time). Every morning your Mac
+  texts you, through the Messages app, the interview rounds in the next 48
+  hours, open to-dos (overdue ones flagged), each application's next step, and
+  outreach emails due a follow-up. If nothing is pending, no text. Try it with
+  `python -m tracker.reminder --print`; turn it off with
+  `./scripts/remind_mac.sh off`. The first text may ask you to let Terminal
+  (or Python) control Messages: click OK.
 - Google logs this app out about once a week while it's in "Testing" mode.
   When that happens you'll get a "FRIDAY needs you" notification; double-click
   `FRIDAY.command` and log in again.
