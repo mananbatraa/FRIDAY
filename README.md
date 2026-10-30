@@ -110,8 +110,15 @@ are in `.gitignore`).
   the next 48 hours, open to-dos (overdue ones flagged), each application's next
   step, and outreach emails due a follow-up. If nothing is pending, no message.
   Try it with `python -m tracker.reminder --print`; turn it off with
-  `./scripts/remind_mac.sh off`. Where it goes, set in `.env`:
-  - **Telegram** (recommended, a normal phone notification): in Telegram, message
+  `./scripts/remind_mac.sh off`. Where it goes, set in `.env` (the first one
+  set up wins):
+  - **WhatsApp** (a normal phone notification), through the free
+    [CallMeBot](https://www.callmebot.com/blog/free-api-whatsapp-messages/)
+    service: save the CallMeBot number shown on that page as a contact, send it
+    "I allow callmebot to send me messages" on WhatsApp, and it replies with
+    your API key. Put your number in `WHATSAPP_PHONE` and the key in
+    `CALLMEBOT_APIKEY`. CallMeBot sees the text of each reminder.
+  - **Telegram** (a normal phone notification): in Telegram, message
     @BotFather, send `/newbot` and follow the steps; put the token it gives you in
     `TELEGRAM_BOT_TOKEN`. Send your new bot any message, open
     `https://api.telegram.org/bot<token>/getUpdates` and put the number after

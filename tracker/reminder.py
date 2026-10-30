@@ -6,7 +6,10 @@
 It reads the same tables as the dashboard and changes nothing. Nothing pending,
 no message. Run ./scripts/remind_mac.sh to get it at set times every day.
 
-Where it goes:
+Where it goes (the first one set up in .env):
+- With WHATSAPP_PHONE and CALLMEBOT_APIKEY, to your WhatsApp through CallMeBot
+  (callmebot.com, free): a normal notification on your phone. CallMeBot sees
+  the message text.
 - With TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env, to your Telegram bot:
   a normal notification on your phone, free.
 - Otherwise as an iMessage to REMINDER_PHONE, through the Messages app on your
@@ -120,6 +123,16 @@ end run"""
         raise RuntimeError(result.stderr.strip() or "Messages couldn't send the text")
 
 
+def send_whatsapp(phone: str, apikey: str, text: str) -> None:
+    """Send `text` to your own WhatsApp through CallMeBot. Raises OSError or RuntimeError if it refuses."""
+    query = urllib.parse.urlencode({"phone": phone, "text": text, "apikey": apikey})
+    with urllib.request.urlopen(f"https://api.callmebot.com/whatsapp.php?{query}", timeout=60) as response:
+        body = response.read().decode("utf-8", "replace")
+    # CallMeBot answers 200 with an HTML page either way; errors say so in the text.
+    if "error" in body.lower() and "queued" not in body.lower():
+        raise RuntimeError("CallMeBot didn't accept the message (check WHATSAPP_PHONE and CALLMEBOT_APIKEY)")
+
+
 def send_telegram(token: str, chat_id: str, text: str) -> None:
     """Send `text` from your Telegram bot. Raises OSError or RuntimeError if Telegram refuses."""
     data = urllib.parse.urlencode({"chat_id": chat_id, "text": text}).encode()
@@ -167,20 +180,25 @@ def main(argv=None) -> int:
     if not text:
         print("Nothing pending, no text sent.")
         return 0
+    whatsapp = os.environ.get("WHATSAPP_PHONE", "").strip()
+    apikey = os.environ.get("CALLMEBOT_APIKEY", "").strip()
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
     phone = os.environ.get("REMINDER_PHONE", "").strip()
-    if not (token and chat_id) and not phone:
-        print("Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, or REMINDER_PHONE, in .env to get this sent to you:\n\n"
-              + text)
-        return 1
     try:
-        if token and chat_id:
+        if whatsapp and apikey:
+            send_whatsapp(whatsapp, apikey, text)
+            where = f"WhatsApp {whatsapp}"
+        elif token and chat_id:
             send_telegram(token, chat_id, text)
             where = "Telegram"
-        else:
+        elif phone:
             send_imessage(phone, text)
             where = phone
+        else:
+            print("Set WHATSAPP_PHONE and CALLMEBOT_APIKEY, TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, or "
+                  "REMINDER_PHONE in .env to get this sent to you:\n\n" + text)
+            return 1
     except (OSError, RuntimeError) as e:
         print(f"Couldn't send the reminder: {e}")
         notify("FRIDAY couldn't reach you", str(e))

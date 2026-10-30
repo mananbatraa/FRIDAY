@@ -58,22 +58,32 @@ class SendTest(unittest.TestCase):
         rows = ([{"Company": "Affirm", "Status": "Interview", "Next action": "Pick a slot", "Rounds": ""}], [], [])
         with mock.patch.dict(os.environ, env, clear=False), \
                 mock.patch.object(reminder, "load_rows", return_value=rows), \
+                mock.patch.object(reminder, "send_whatsapp") as whatsapp, \
                 mock.patch.object(reminder, "send_telegram") as telegram, \
                 mock.patch.object(reminder, "send_imessage") as imessage, \
                 mock.patch("builtins.print"):
             code = reminder.main([])
+        self.whatsapp = whatsapp
         return code, telegram, imessage
+
+    def test_whatsapp_first(self):
+        code, telegram, imessage = self.run_main(
+            {"WHATSAPP_PHONE": "+1602", "CALLMEBOT_APIKEY": "k", "TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "42"})
+        self.assertEqual(code, 0)
+        self.assertEqual(self.whatsapp.call_args.args[:2], ("+1602", "k"))
+        telegram.assert_not_called()
+        imessage.assert_not_called()
 
     def test_telegram_wins_over_imessage(self):
         code, telegram, imessage = self.run_main(
-            {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "42", "REMINDER_PHONE": "+1555"})
+            {"WHATSAPP_PHONE": "", "TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "42", "REMINDER_PHONE": "+1555"})
         self.assertEqual(code, 0)
         self.assertEqual(telegram.call_args.args[:2], ("t", "42"))
         self.assertIn("Pick a slot at Affirm", telegram.call_args.args[2])
         imessage.assert_not_called()
 
     def test_imessage_without_telegram(self):
-        code, telegram, imessage = self.run_main({"TELEGRAM_BOT_TOKEN": "", "TELEGRAM_CHAT_ID": "", "REMINDER_PHONE": "+1555"})
+        code, telegram, imessage = self.run_main({"WHATSAPP_PHONE": "", "TELEGRAM_BOT_TOKEN": "", "TELEGRAM_CHAT_ID": "", "REMINDER_PHONE": "+1555"})
         self.assertEqual(code, 0)
         telegram.assert_not_called()
         self.assertEqual(imessage.call_args.args[0], "+1555")

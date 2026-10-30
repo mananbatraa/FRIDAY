@@ -1,5 +1,5 @@
 #!/bin/bash
-# Get a message with what's pending (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, or REMINDER_PHONE, in .env first).
+# Get a message with what's pending (say where in .env first: see the README).
 #   ./scripts/remind_mac.sh                          every day at 9:00
 #   ./scripts/remind_mac.sh 9:00 12:00 16:00 19:00   at each of these times (24-hour clock)
 #   ./scripts/remind_mac.sh off                      turn it off
@@ -32,8 +32,8 @@ for TIME in "${TIMES[@]}"; do
     <dict><key>Hour</key><integer>$((10#$HOUR))</integer><key>Minute</key><integer>$((10#$MINUTE))</integer></dict>"
   WHEN="$WHEN$(printf ' %d:%02d' "$((10#$HOUR))" "$((10#$MINUTE))")"
 done
-if ! grep -qE "^(REMINDER_PHONE|TELEGRAM_CHAT_ID)=." .env 2>/dev/null; then
-  echo "Say where to send it in .env first: TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, or REMINDER_PHONE=+14805551234"
+if ! grep -qE "^(WHATSAPP_PHONE|TELEGRAM_CHAT_ID|REMINDER_PHONE)=." .env 2>/dev/null; then
+  echo "Say where to send it in .env first: WHATSAPP_PHONE and CALLMEBOT_APIKEY, TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, or REMINDER_PHONE (see the README)."
   exit 1
 fi
 
