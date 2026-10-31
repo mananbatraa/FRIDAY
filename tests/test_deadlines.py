@@ -131,3 +131,12 @@ class CalendarRulesTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReportItemsTest(unittest.TestCase):
+    def test_twice_a_day_until_the_end_date(self):
+        from tracker.deadlines import report_items
+        items = report_items("2026-11-05", date(2026, 11, 4))
+        self.assertEqual([(i.when.day, i.when.hour) for i in items], [(3, 11), (3, 21), (4, 11), (4, 21), (5, 11), (5, 21)])
+        self.assertEqual(report_items("2026-11-05", date(2026, 11, 7)), [])
+        self.assertEqual(report_items("", date(2026, 11, 4)), [])

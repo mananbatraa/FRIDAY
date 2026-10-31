@@ -12,6 +12,7 @@ Sources (set in .env; any that aren't set are skipped):
 - CALENDAR_ICS_URLS: comma-separated private iCal links, e.g. Google Calendar > Settings >
   your calendar > "Secret address in iCal format". This is how scheduled calls get in.
 - Interview rounds and dated to-dos: FRIDAY's own tables.
+- HACKATHON_REPORTS_UNTIL=YYYY-MM-DD: a progress report due twice a day (11:30 AM and 9 PM) until then.
 """
 from __future__ import annotations
 
@@ -175,6 +176,24 @@ def table_items(apps: list[dict], todos: list[dict]) -> list[Item]:
     return items
 
 
+REPORT_TIMES = ((11, 30, "AM"), (21, 0, "PM"))  # when each twice-daily report is due
+
+
+def report_items(until: str, today: date) -> list[Item]:
+    """The hackathon's twice-daily progress reports, from yesterday until `until` (YYYY-MM-DD)."""
+    try:
+        last = date.fromisoformat(until.strip())
+    except ValueError:
+        return []
+    items, day = [], today - timedelta(days=1)
+    while day <= min(last, today + timedelta(days=7)):
+        for hour, minute, part in REPORT_TIMES:
+            when = datetime.combine(day, datetime.min.time()).replace(hour=hour, minute=minute)
+            items.append(Item(when, f"Hackathon progress report ({part}): say submit", "due", False, "Hackathon"))
+        day += timedelta(days=1)
+    return items
+
+
 def _fetch(url: str) -> str:
     with urllib.request.urlopen(url, timeout=30) as response:
         return response.read().decode("utf-8", "replace")
@@ -195,6 +214,7 @@ def collect(apps: list[dict] | None = None, todos: list[dict] | None = None) -> 
         except OSError:
             problems.append("Couldn't reach one of your calendars")
     items += table_items(apps or [], todos or [])
+    items += report_items(os.environ.get("HACKATHON_REPORTS_UNTIL", ""), date.today())
     done = load_done()
     unique = {i.key: i for i in items if i.key not in done}
     return sorted(unique.values(), key=lambda i: i.when), problems
