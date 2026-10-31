@@ -102,18 +102,22 @@ Other options for the morning message, if set (the first one wins):
 
 **Texting FRIDAY back.** Put a second private topic in `NTFY_INBOX_TOPIC` (different from
 `NTFY_TOPIC`), subscribe to it in the ntfy app too, and run `./scripts/inbox_mac.sh`. Type in
-that topic's message box and FRIDAY answers on your usual topic within a minute:
+that topic's message box and FRIDAY answers on your usual topic within seconds. Capitals and
+full stops don't matter. In the app, mute the inbox topic so your own messages don't buzz.
 
 | Send | You get |
 |---|---|
-| `list` | what's due today, tomorrow and this week |
-| `pending` | the morning message, right now |
-| `done hw3` | upcoming items with "hw3" in the title marked done |
-| `todo email Josh by 2026-11-02` | a new to-do, with an optional due date |
+| `list` or `what's due?` | what's due today, tomorrow and this week |
+| `pending` | the morning message, right now (takes about 15 seconds; "On it…" comes first) |
+| `done cse 540 quiz` | the next item with all those words marked done. If they fit several different items it asks which; `done all quiz` marks every one. A daily report is marked one at a time. |
+| `undo 540` | not done after all |
+| `todo email Josh by fri` | a new to-do. The day can be `today`, `tomorrow`, a weekday, `nov 2`, `11/2` or `2026-11-02`. |
+| `submit` | a reminder on the Mac to tell Claude "submit" for the hackathon report |
 | `help` | this list |
 
 Only these commands run. Anyone who knows the inbox topic can send them, so keep it private.
-Try one on the Mac with `python -m tracker.inbox --ask list`.
+Try one on the Mac with `python -m tracker.inbox --ask list`. If the Mac was asleep, FRIDAY
+answers what you sent as soon as it wakes.
 
 ## Connecting your day
 
@@ -151,7 +155,7 @@ its script, off with `off`:
 | Email check every 3 hours | `./scripts/schedule_mac.sh` | `logs/tracker.log` |
 | Morning message 8:00, list 18:00 | `./scripts/remind_mac.sh 8:00 18:00` | `logs/reminder.log` |
 | Deadline alerts (every 5 minutes) | `./scripts/alerts_mac.sh` | `logs/alerts.log` |
-| Texting FRIDAY (every minute) | `./scripts/inbox_mac.sh` | `logs/inbox.log` |
+| Texting FRIDAY (always listening) | `./scripts/inbox_mac.sh` | `logs/inbox.log` |
 | Job opener every 3 hours | `./scripts/schedule_jobs_mac.sh` | `logs/open_jobs.log` |
 
 If a Google login expires you get a "FRIDAY needs you" notification: double-click

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Text FRIDAY from your phone: checks NTFY_INBOX_TOPIC for new messages and answers on NTFY_TOPIC.
-#   ./scripts/inbox_mac.sh         check every minute while the Mac is awake
+#   ./scripts/inbox_mac.sh         answer within seconds while the Mac is awake
 #   ./scripts/inbox_mac.sh off     turn it off
 set -e
 cd "$(dirname "$0")/.."
@@ -26,9 +26,10 @@ cat > "$PLIST" <<PLIST
   <key>ProgramArguments</key>
   <array>
     <string>$DIR/.venv/bin/python</string>
-    <string>-m</string><string>tracker.inbox</string>
+    <string>-m</string><string>tracker.inbox</string><string>--listen</string>
   </array>
-  <key>StartInterval</key><integer>60</integer>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>30</integer>
   <key>RunAtLoad</key><true/>
   <key>StandardOutPath</key><string>$DIR/logs/inbox.log</string>
   <key>StandardErrorPath</key><string>$DIR/logs/inbox.log</string>
@@ -37,4 +38,4 @@ cat > "$PLIST" <<PLIST
 PLIST
 launchctl unload "$PLIST" 2>/dev/null || true
 launchctl load "$PLIST"
-echo "Texting FRIDAY is on: checked every minute. Log: $DIR/logs/inbox.log"
+echo "Texting FRIDAY is on: it answers within seconds. Log: $DIR/logs/inbox.log"

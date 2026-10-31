@@ -9,12 +9,12 @@ import urllib.request
 NTFY_SERVER = "https://ntfy.sh"
 
 
-def notify(title: str, message: str) -> None:
+def notify(title: str, message: str, phone: bool = True) -> None:
     if platform.system() == "Darwin":
         script = f"display notification {_quote(message)} with title {_quote(title)}"
         subprocess.run(["osascript", "-e", script], check=False, capture_output=True)
     topic = os.environ.get("NTFY_TOPIC", "").strip()
-    if topic:
+    if topic and phone:
         try:
             send_ntfy(topic, title, message)
         except OSError:

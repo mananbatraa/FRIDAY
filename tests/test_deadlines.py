@@ -90,6 +90,13 @@ class AlertTest(unittest.TestCase):
         self.assertEqual(tomorrow, ("Tomorrow", ["Team sync (tomorrow 10:00 AM)"]))
         self.assertEqual(week, ("Due this week", ["CSE 598: HW3 (due Fri Nov 6)"]))
 
+    def test_repeats_this_week_are_one_line(self):
+        reports = [Item(datetime(2026, 11, day, 21, 0), "Report (PM)", "due") for day in (3, 4, 5)]
+        _, _, week = report_sections(reports + [Item(datetime(2026, 11, 6, 23, 59), "HW3", "due", True)],
+                                     datetime(2026, 11, 1, 8, 0))
+        self.assertEqual(week, ("Due this week", ["Report (PM) (due Tue Nov 3 9:00 PM, 3 times to Thu Nov 5)",
+                                                  "HW3 (due Fri Nov 6)"]))
+
 
 class DoneTest(unittest.TestCase):
     def test_mark_done(self):

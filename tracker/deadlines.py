@@ -199,8 +199,9 @@ def _fetch(url: str) -> str:
         return response.read().decode("utf-8", "replace")
 
 
-def collect(apps: list[dict] | None = None, todos: list[dict] | None = None) -> tuple[list[Item], list[str]]:
-    """Every dated item from every source, minus the ones marked done, and any source errors."""
+def collect(apps: list[dict] | None = None, todos: list[dict] | None = None,
+            include_done: bool = False) -> tuple[list[Item], list[str]]:
+    """Every dated item from every source, minus the ones marked done (unless include_done), and any source errors."""
     items, problems = [], []
     canvas = os.environ.get("CANVAS_ICS_URL", "").strip()
     if canvas:
@@ -215,7 +216,7 @@ def collect(apps: list[dict] | None = None, todos: list[dict] | None = None) -> 
             problems.append("Couldn't reach one of your calendars")
     items += table_items(apps or [], todos or [])
     items += report_items(os.environ.get("HACKATHON_REPORTS_UNTIL", ""), date.today())
-    done = load_done()
+    done = {} if include_done else load_done()
     unique = {i.key: i for i in items if i.key not in done}
     return sorted(unique.values(), key=lambda i: i.when), problems
 
@@ -239,13 +240,32 @@ def load_done() -> dict:
     return _load(DONE_FILE)
 
 
+def _words(text: str) -> list[str]:
+    return re.findall(r"\w+", text.lower())
+
+
+def matching(items: list[Item], text: str, today: date) -> list[Item]:
+    """Upcoming items whose title has every word of `text`, in any order ("cse 540 quiz")."""
+    words = _words(text)
+    return [i for i in items if words and i.when.date() >= today - timedelta(days=1)
+            and all(any(t.startswith(w) for t in _words(i.title)) for w in words)]
+
+
+def set_done(items: list[Item], today: date, done: bool = True) -> None:
+    """Mark `items` done, or not done again."""
+    saved = load_done()
+    for i in items:
+        if done:
+            saved[i.key] = today.isoformat()
+        else:
+            saved.pop(i.key, None)
+    _save(DONE_FILE, saved)
+
+
 def mark_done(items: list[Item], text: str, today: date) -> list[Item]:
-    """Mark every upcoming item whose title contains `text` as done."""
-    matches = [i for i in items if text.lower() in i.title.lower() and i.when.date() >= today - timedelta(days=1)]
-    done = load_done()
-    for i in matches:
-        done[i.key] = today.isoformat()
-    _save(DONE_FILE, done)
+    """Mark every upcoming item matching `text` as done."""
+    matches = matching(items, text, today)
+    set_done(matches, today)
     return matches
 
 
@@ -264,12 +284,26 @@ def alert_text(item: Item, now: datetime) -> str:
 # ---------------------------------------------------------------- report sections
 
 
+def _fold(items: list[Item], today: date) -> list[str]:
+    """Labels, with an item that repeats (a daily report) shown once: "... (due Mon Nov 2 9:00 PM, 4 times to Thu Nov 5)"."""
+    by_title: dict[str, list[Item]] = {}
+    for i in items:
+        by_title.setdefault(i.title, []).append(i)
+    lines = []
+    for same in by_title.values():
+        label = same[0].label(today)
+        if len(same) > 1:
+            label = f"{label[:-1]}, {len(same)} times to {same[-1].when:%a %b %-d})"
+        lines.append(label)
+    return lines
+
+
 def report_sections(items: list[Item], now: datetime) -> list[tuple[str, list[str]]]:
     today = now.date()
     todays = [i.label(today) for i in items if i.when.date() == today and i.when >= now - timedelta(hours=1)]
     tomorrow = today + timedelta(days=1)
     next_day = [i.label(today) for i in items if i.when.date() == tomorrow]
-    week = [i.label(today) for i in items if i.kind == "due" and tomorrow < i.when.date() <= today + timedelta(days=7)]
+    week = _fold([i for i in items if i.kind == "due" and tomorrow < i.when.date() <= today + timedelta(days=7)], today)
     return [("Today", todays), ("Tomorrow", next_day), ("Due this week", week)]
 
 
