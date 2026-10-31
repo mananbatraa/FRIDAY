@@ -146,7 +146,7 @@ class MainTest(unittest.TestCase):
     def run_main(self, messages, reply=lambda text, now: f"re {text}"):
         sent = []
         with mock.patch.object(inbox, "fetch", return_value=messages) as fetch, \
-                mock.patch("tracker.notify.send_ntfy", side_effect=lambda *a: sent.append(a)), \
+                mock.patch("tracker.notify.send_ntfy", side_effect=lambda *a, **k: sent.append(a)), \
                 mock.patch.object(inbox, "answer", side_effect=reply):
             self.assertEqual(inbox.main([]), 0)
         return fetch.call_args[0], sent

@@ -314,7 +314,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     from .config import Config
-    from .notify import notify
+    from .notify import button, notify
     from .reminder import load_rows
 
     Config.load()
@@ -336,7 +336,7 @@ def main(argv=None) -> int:
 
     sent = _load(SENT_FILE)
     for item in due_for_alert(items, now, sent):
-        notify("FRIDAY: coming up", alert_text(item, now))
+        notify("FRIDAY: coming up", alert_text(item, now), actions=[button("Done", f"done {item.title}")])
         sent[item.key] = now.isoformat(timespec="minutes")
     # Forget alerts older than a week so the file stays small.
     cutoff = (now - timedelta(days=7)).isoformat()

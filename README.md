@@ -102,7 +102,10 @@ Other options for the morning message, if set (the first one wins):
 
 **Texting FRIDAY back.** Put a second private topic in `NTFY_INBOX_TOPIC` (different from
 `NTFY_TOPIC`), subscribe to it in the ntfy app too, and run `./scripts/inbox_mac.sh`. Type in
-that topic's message box and FRIDAY answers on your usual topic within seconds. Capitals and
+that topic's message box, or open `https://ntfy.sh/<your inbox topic>` in your phone's browser
+(add it to your home screen), and FRIDAY answers on your usual topic within seconds. Every FRIDAY
+notification also has buttons: **List**, **Pending** (or **Done** on a deadline alert) and
+**Message FRIDAY**, which opens that page to type anything. Capitals and
 full stops don't matter. In the app, mute the inbox topic so your own messages don't buzz.
 
 | Send | You get |
