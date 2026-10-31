@@ -100,6 +100,21 @@ Other options for the morning message, if set (the first one wins):
 - **Telegram**: create a bot with @BotFather and set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 - **iMessage** from this Mac (`REMINDER_PHONE`). Sent to your own number, it arrives without an alert.
 
+**Texting FRIDAY back.** Put a second private topic in `NTFY_INBOX_TOPIC` (different from
+`NTFY_TOPIC`), subscribe to it in the ntfy app too, and run `./scripts/inbox_mac.sh`. Type in
+that topic's message box and FRIDAY answers on your usual topic within a minute:
+
+| Send | You get |
+|---|---|
+| `list` | what's due today, tomorrow and this week |
+| `pending` | the morning message, right now |
+| `done hw3` | upcoming items with "hw3" in the title marked done |
+| `todo email Josh by 2026-11-02` | a new to-do, with an optional due date |
+| `help` | this list |
+
+Only these commands run. Anyone who knows the inbox topic can send them, so keep it private.
+Try one on the Mac with `python -m tracker.inbox --ask list`.
+
 ## Connecting your day
 
 Set these in `.env` (or let `setup.sh` ask). Each link is private: treat it like a password.
@@ -136,6 +151,7 @@ its script, off with `off`:
 | Email check every 3 hours | `./scripts/schedule_mac.sh` | `logs/tracker.log` |
 | Morning message 8:00, list 18:00 | `./scripts/remind_mac.sh 8:00 18:00` | `logs/reminder.log` |
 | Deadline alerts (every 5 minutes) | `./scripts/alerts_mac.sh` | `logs/alerts.log` |
+| Texting FRIDAY (every minute) | `./scripts/inbox_mac.sh` | `logs/inbox.log` |
 | Job opener every 3 hours | `./scripts/schedule_jobs_mac.sh` | `logs/open_jobs.log` |
 
 If a Google login expires you get a "FRIDAY needs you" notification: double-click
@@ -270,6 +286,7 @@ tracker/
   deadlines.py            Canvas, calendars, interviews, dated to-dos; 30-minute alerts
   quotes.py               the morning quote
   notify.py               Mac and ntfy notifications
+  inbox.py                commands texted from your phone through ntfy
   open_jobs.py            job opener
   gmail_client.py, google_auth.py, config.py, storage.py, models.py, llm.py, folders.py
 scripts/                  background job switches (launchd)
