@@ -25,6 +25,13 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(parse("hi"), ("unknown", "hi"))
         self.assertEqual(parse("👍"), ("unknown", "👍"))
 
+    def test_requests_that_start_like_a_command_go_to_claude(self):
+        self.assertEqual(parse("list my applications"), ("unknown", "list my applications"))
+        self.assertEqual(parse("send Sam the deck"), ("unknown", "send Sam the deck"))
+        self.assertEqual(parse("help me write to Josh"), ("unknown", "help me write to Josh"))
+        self.assertEqual(parse("send 4821"), ("send", "4821"))
+        self.assertEqual(parse("New"), ("new", ""))
+
 
 class ParseDayTest(unittest.TestCase):
     def test_words_and_dates(self):
@@ -56,9 +63,24 @@ class ParseTodoTest(unittest.TestCase):
 
 
 class AnswerTest(unittest.TestCase):
-    def test_unknown_says_so(self):
-        self.assertEqual(answer("rm -rf /", NOW), f"I didn't get 'rm -rf /'.\n\n{HELP}")
+    def test_unknown_says_so_without_the_assistant(self):
+        with mock.patch("tracker.agent.available", return_value=False):
+            self.assertEqual(answer("rm -rf /", NOW), f"I didn't get 'rm -rf /'.\n\n{HELP}")
         self.assertEqual(answer("help", NOW), HELP)
+
+    def test_anything_else_goes_to_claude(self):
+        with mock.patch("tracker.agent.available", return_value=True), \
+                mock.patch("tracker.agent.ask", return_value="Draft saved") as ask:
+            self.assertEqual(answer("email Sam the plan", NOW), "Draft saved")
+        ask.assert_called_once_with("email Sam the plan", NOW)
+
+    def test_send_and_cancel_need_a_code(self):
+        with mock.patch("tracker.tools.send", return_value="Sent") as send, \
+                mock.patch("tracker.tools.cancel", return_value="Deleted") as cancel:
+            self.assertEqual(answer("Send 4821", NOW), "Sent")
+            self.assertEqual(answer("cancel 4821.", NOW), "Deleted")
+        send.assert_called_once_with("4821")
+        cancel.assert_called_once_with("4821")
 
     def test_missing_text(self):
         self.assertEqual(answer("done", NOW), "Done what? Send part of its name, like: done hw3")
@@ -158,6 +180,11 @@ class MainTest(unittest.TestCase):
         self.assertEqual((topic, since), ("in-abc", "m2"))
         with open(inbox.STATE_FILE) as f:
             self.assertEqual(json.load(f), {"last_id": "m2"})
+
+    def test_claude_says_on_it_first(self):
+        with mock.patch("tracker.agent.available", return_value=True):
+            _, sent = self.run_main([{"id": "m1", "message": "email Sam"}])
+        self.assertEqual([s[2] for s in sent], ["On it, give me a few seconds…", "re email Sam"])
 
     def test_slow_commands_say_on_it_first(self):
         _, sent = self.run_main([{"id": "m1", "message": "Pending"}])

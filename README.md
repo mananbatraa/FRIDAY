@@ -116,7 +116,23 @@ full stops don't matter. In the app, mute the inbox topic so your own messages d
 | `undo 540` | not done after all |
 | `todo email Josh by fri` | a new to-do. The day can be `today`, `tomorrow`, a weekday, `nov 2`, `11/2` or `2026-11-02`. |
 | `submit` | a reminder on the Mac to tell Claude "submit" for the hackathon report |
+| `send 4821` / `cancel 4821` | send or delete an email draft the assistant saved |
+| `new` | start a fresh conversation with the assistant |
 | `help` | this list |
+
+**Anything else goes to Claude.** "Email Sam the slides plan", "what did Josh last email me
+about?", "apply to https://…": FRIDAY runs Claude Code on the Mac (`claude -p`), signed in with your
+Claude subscription, so there's no API key and no per-message bill (it counts toward your plan's
+usage). Replies take 10–60 seconds, and texts within 30 minutes are one conversation.
+
+Claude there can only use `tracker/tools.py` (FRIDAY's commands, look up contacts, search your
+email, check your job applications, save a draft or a threaded reply, open a job posting in Chrome
+for Tsenta), web search and web pages. It writes to school and hackathon people from your ASU
+account, replaces a draft when you ask for changes, and runs on Sonnet for speed
+(`FRIDAY_MODEL=opus` for the most careful answers). Claude
+Code itself refuses anything else, with no shell, no files and no other connectors. It **can't send
+email**: it saves a draft and texts you a code, and only your own `send <code>` sends it. Turn the
+assistant off with `FRIDAY_ASSISTANT=off` in `.env`.
 
 Only these commands run. Anyone who knows the inbox topic can send them, so keep it private.
 Try one on the Mac with `python -m tracker.inbox --ask list`. If the Mac was asleep, FRIDAY
@@ -294,6 +310,8 @@ tracker/
   quotes.py               the morning quote
   notify.py               Mac and ntfy notifications
   inbox.py                commands texted from your phone through ntfy
+  agent.py                free-form texts, answered by Claude Code with only tools.py
+  tools.py                what that assistant can do: contacts, email search, drafts, apply
   open_jobs.py            job opener
   gmail_client.py, google_auth.py, config.py, storage.py, models.py, llm.py, folders.py
 scripts/                  background job switches (launchd)

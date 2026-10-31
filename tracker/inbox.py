@@ -9,10 +9,13 @@ the box at the bottom). FRIDAY answers on NTFY_TOPIC within a few seconds:
     undo <text>     not done after all
     todo <text>     add a to-do; end with a day ("tomorrow", "by fri", "nov 2") to give it a due date
     submit          remind you on the Mac to submit the hackathon report with Claude
+    send <code>     send an email draft the assistant saved (cancel <code> deletes it)
+    new             start a fresh conversation with the assistant
     help            this list
 
-Only these commands run; anything else gets the help text back. Anyone who knows the inbox topic
-can send them, so make it long and random, and different from NTFY_TOPIC.
+Anything else goes to Claude Code on this Mac (tracker/agent.py), which can only use tracker/tools.py;
+with FRIDAY_ASSISTANT=off it gets the help text instead. Anyone who knows the inbox topic can send
+these, so make it long and random, and different from NTFY_TOPIC.
 
     python -m tracker.inbox --listen  answer as messages arrive (launchd keeps this running)
     python -m tracker.inbox           answer what's arrived since last time, once
@@ -40,18 +43,21 @@ HELP = ("Text me one of these:\n"
         "undo <text>: not done after all\n"
         "todo <text> [tomorrow, by fri, nov 2]: add a to-do\n"
         "submit: remind me on the Mac to submit the hackathon report\n"
+        "send / cancel <code>: send or delete an email draft I saved\n"
+        "new: start a fresh conversation\n"
+        "Anything else goes to Claude: \"email Sam the slides plan\", \"apply to <link>\"\n"
         "help: this list")
 SLOW = {"pending"}  # these read Gmail too, so they get a quick "on it" first
 
 _COMMANDS = {
     "list": "list", "today": "list", "week": "list", "due": "list", "deadlines": "list", "agenda": "list",
     "pending": "pending", "report": "pending", "morning": "pending",
-    "done": "done", "did": "done", "finished": "done",
-    "undo": "undo", "undone": "undo",
-    "todo": "todo", "add": "todo", "remind": "todo",
-    "submit": "submit",
+    "done": "done", "undo": "undo", "todo": "todo",
+    "send": "send", "cancel": "cancel",
+    "submit": "submit", "new": "new",
     "help": "help", "commands": "help",
 }
+_ALONE = {"list", "pending", "submit", "new", "help"}  # only when that's the whole text: "list my applications" is for Claude
 _WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 _WEEKDAY_NAMES = {"mon", "monday", "tue", "tues", "tuesday", "wed", "weds", "wednesday", "thu", "thur", "thurs",
                   "thursday", "fri", "friday", "sat", "saturday", "sun", "sunday"}
@@ -66,8 +72,10 @@ def parse(text: str) -> tuple[str, str]:
         return "help", ""
     rest = words[1].strip() if len(words) > 1 else ""
     first = re.sub(r"[^\w?]", "", words[0].lower()).rstrip("?")
-    if first in _COMMANDS:
-        return _COMMANDS[first], rest
+    command = _COMMANDS.get(first)
+    if command in _ALONE and not rest or command in ("done", "undo", "todo") \
+            or command in ("send", "cancel") and re.fullmatch(r"\d{4}", rest):
+        return command, rest
     if re.match(r"what('?s|\s+is)\s+(due|up|left|pending)", text.lower()):
         return "list", ""
     return "unknown", text
@@ -159,9 +167,24 @@ def answer(text: str, now: datetime) -> str:
 
         notify("FRIDAY: submit the hackathon report", "Asked from your phone. Tell Claude: submit", phone=False)
         return ("Noted. I can't fill the form from here: on the Mac, tell Claude \"submit\" "
-                "and it writes and submits the report for you and Manan.")
+                "and it writes and submits the report for you.")
+
+    if command in ("send", "cancel"):
+        from . import tools
+
+        return tools.send(rest) if command == "send" else tools.cancel(rest)
+
+    if command == "new":
+        from . import agent
+
+        agent.forget()
+        return "Starting fresh. What do you need?"
 
     if command == "unknown":
+        from . import agent
+
+        if agent.available():
+            return agent.ask(text, now)
         return f"I didn't get {rest!r}.\n\n{HELP}"
     return HELP
 
@@ -232,6 +255,13 @@ def fetch(topic: str, since: str) -> list[dict]:
     return [e for e in events if e.get("event") == "message"]
 
 
+def is_slow(text: str) -> bool:
+    from . import agent
+
+    command = parse(text)[0]
+    return command in SLOW or command == "unknown" and agent.available()
+
+
 def handle(message: dict, outbox: str, state: dict) -> bool:
     """Answer one message on `outbox`. False if the reply couldn't be sent (try again later)."""
     from .google_auth import LoginNeeded
@@ -239,7 +269,7 @@ def handle(message: dict, outbox: str, state: dict) -> bool:
 
     text = message.get("message", "")
     try:
-        if parse(text)[0] in SLOW:
+        if is_slow(text):
             send_ntfy(outbox, "FRIDAY", "On it, give me a few seconds…")
         try:
             reply = answer(text, datetime.now())
